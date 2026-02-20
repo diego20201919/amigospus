@@ -30,7 +30,8 @@ import {
   Coffee,
   Ticket,
   Sparkles,
-  Trophy
+  Trophy,
+  Facebook
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -217,7 +218,7 @@ const GroupMeetingUI = ({ group, onExit, userDiamonds, setUserDiamonds }) => {
       </AnimatePresence>
 
       <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)' }}>
-        <h2 style={{ fontSize: '18px' }}>Sala: {group?.name || 'Zerca Meeting'}</h2>
+        <h2 style={{ fontSize: '18px' }}>Sala: {group?.name || 'Amigos Puz Meeting'}</h2>
         <button className="icon-btn secondary-btn" onClick={onExit}><X /></button>
       </div>
 
@@ -289,7 +290,6 @@ const Login = ({ onLogin }) => {
       return;
     }
 
-    // Regla Crítica: No puntos antes del @
     const parts = email.split('@');
     if (parts.length !== 2 || parts[0].includes('.')) {
       setError('El correo no puede tener puntos antes del @');
@@ -302,9 +302,7 @@ const Login = ({ onLogin }) => {
         email,
         password,
       });
-
       if (authError) throw authError;
-
       onLogin(data.user);
     } catch (err) {
       console.error("Login error:", err.message);
@@ -314,41 +312,84 @@ const Login = ({ onLogin }) => {
     }
   };
 
+  const handleSocialLogin = async (provider) => {
+    try {
+      const { data, error: socialError } = await supabase.auth.signInWithOAuth({
+        provider: provider,
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      if (socialError) throw socialError;
+    } catch (err) {
+      console.error(`${provider} login error:`, err.message);
+      setError(`Error al conectar con ${provider}`);
+    }
+  };
+
   return (
     <div className="container" style={{ justifyContent: 'center', alignItems: 'center' }}>
-      <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="card" style={{ textAlign: 'center', padding: '40px', width: '90%', maxWidth: '400px' }}>
-        <div style={{ width: '80px', height: '80px', background: 'var(--primary)', borderRadius: '25px', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Sparkles color="white" size={40} /></div>
-        <h1 style={{ fontSize: '32px', letterSpacing: '2px', marginBottom: '20px' }}>AMIGOS PUZ</h1>
+      <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="card" style={{ textAlign: 'center', padding: '30px 40px', width: '90%', maxWidth: '400px' }}>
+        <div style={{ width: '60px', height: '60px', background: 'var(--primary)', borderRadius: '20px', margin: '0 auto 15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Sparkles color="white" size={30} />
+        </div>
+        <h1 style={{ fontSize: '28px', letterSpacing: '2px', marginBottom: '20px' }}>AMIGOS PUZ</h1>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ textAlign: 'left' }}>
-            <label style={{ fontSize: '12px', opacity: 0.7, marginBottom: '5px', display: 'block' }}>Correo Electrónico</label>
+            <label style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px', display: 'block' }}>Correo Electrónico</label>
             <input
               type="email"
               placeholder="usuario@correo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
             />
           </div>
 
           <div style={{ textAlign: 'left' }}>
-            <label style={{ fontSize: '12px', opacity: 0.7, marginBottom: '5px', display: 'block' }}>Contraseña</label>
+            <label style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px', display: 'block' }}>Contraseña</label>
             <input
               type="password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
             />
           </div>
 
-          {error && <div style={{ color: 'var(--error)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
+          {error && <div style={{ color: 'var(--error)', fontSize: '12px' }}>{error}</div>}
 
-          <button type="submit" disabled={loading} className="primary-btn" style={{ width: '100%', marginTop: '10px' }}>
-            {loading ? 'Entrando...' : 'ENTRAR'}
+          <button type="submit" disabled={loading} className="primary-btn" style={{ width: '100%', height: '50px', minHeight: '50px' }}>
+            {loading ? 'Cargando...' : 'ENTRAR'}
           </button>
         </form>
+
+        <div style={{ margin: '20px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+          <span style={{ fontSize: '11px', opacity: 0.5 }}>o continuar con</span>
+          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '15px' }}>
+          <button className="secondary-btn" onClick={() => handleSocialLogin('google')} style={{ flex: 1, height: '45px', minHeight: '45px', fontSize: '14px', gap: '8px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path fill="#EA4335" d="M24 12.27c0-.85-.07-1.67-.21-2.45H12.27v4.63h6.58a5.62 5.62 0 0 1-2.43 3.69v3.07h3.94c2.31-2.13 3.64-5.26 3.64-8.94z" />
+              <path fill="#34A853" d="M12.27 24a11.72 11.72 0 0 0 8.11-2.98l-3.94-3.07c-1.09.73-2.49 1.16-4.17 1.16-3.21 0-5.92-2.17-6.89-5.08h-4.1v3.18A12.27 12.27 0 0 0 12.27 24z" />
+              <path fill="#FBBC05" d="M5.38 14.03a7.37 7.37 0 0 1 0-4.66V6.19h-4.1a12.27 12.27 0 0 0 0 11.02l4.1-3.18z" />
+              <path fill="#4285F4" d="M12.27 4.77c1.77 0 3.36.61 4.61 1.81l3.46-3.46A12.23 12.23 0 0 0 12.27 0C7.51 0 3.4 2.72 1.28 6.19l4.1 3.18c.97-2.91 3.68-5.08 6.89-5.08z" />
+            </svg>
+            Google
+          </button>
+          <button className="secondary-btn" onClick={() => handleSocialLogin('facebook')} style={{ flex: 1, height: '45px', minHeight: '45px', fontSize: '14px', gap: '8px' }}>
+            <Facebook size={18} color="#1877F2" fill="#1877F2" />
+            Facebook
+          </button>
+        </div>
+
+        <p style={{ marginTop: '25px', fontSize: '10px', opacity: 0.5, lineHeight: '1.4' }}>
+          Al continuar, aceptas nuestros <a href="#" style={{ color: 'var(--secondary)', textDecoration: 'none' }}>Términos de Servicio</a> y <a href="#" style={{ color: 'var(--secondary)', textDecoration: 'none' }}>Política de Privacidad</a>.
+        </p>
       </motion.div>
     </div>
   );
@@ -357,7 +398,7 @@ const Login = ({ onLogin }) => {
 const FeedModule = () => (
   <div className="fade-in">
     <h3>Muro Social</h3>
-    <AdMobBanner />
+    <AdMobBanner id="ca-app-pub-5758697662837949/7204898837" />
     {[1, 2].map(i => (
       <div key={i} className="card" style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
@@ -367,27 +408,53 @@ const FeedModule = () => (
         <div style={{ height: '150px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}></div>
       </div>
     ))}
-    <AdMobBanner />
+    <AdMobBanner id="ca-app-pub-5758697662837949/7204898837" />
   </div>
 );
 
 // --- COMPONENTES DE REPARACIÓN (ADMOB & ADMIN) ---
 
-const AdMobBanner = () => (
+const AdMobBanner = ({ id }) => (
   <div style={{
     margin: '10px 0',
     padding: '10px',
     background: '#333',
     borderRadius: '10px',
     textAlign: 'center',
-    border: '1px dashed #666',
-    fontSize: '12px',
-    color: '#aaa'
+    border: '1px dashed #444',
+    fontSize: '11px',
+    color: '#888'
   }}>
-    <span style={{ fontSize: '10px', display: 'block', marginBottom: '4px' }}>ANUNCIO ADMOB</span>
-    Espacio publicitario configurado (ID: pub-8524...)
+    <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--secondary)', marginBottom: '4px' }}>ANUNCIO ACTIVO</div>
+    Banner ID: {id}
   </div>
 );
+
+const RewardAd = ({ onReward }) => {
+  const [loading, setLoading] = useState(false);
+
+  const watchAd = () => {
+    setLoading(true);
+    // Simulación de carga de anuncio de video
+    setTimeout(() => {
+      setLoading(false);
+      onReward();
+      alert("¡Has recibido 50 Diamantes por ver el anuncio!");
+    }, 2000);
+  };
+
+  return (
+    <button
+      className="secondary-btn"
+      onClick={watchAd}
+      disabled={loading}
+      style={{ width: '100%', marginTop: '10px', background: 'rgba(255, 215, 0, 0.1)', border: '1px solid gold' }}
+    >
+      <Trophy size={16} style={{ marginRight: '8px' }} />
+      {loading ? 'Cargando Video...' : 'Ver Video (ID: ...05763) +50 💎'}
+    </button>
+  );
+};
 
 const AdminPanel = () => {
   const [stats, setStats] = useState({ users: 0, activity: 'Cargando...' });
@@ -476,6 +543,7 @@ const StoreModule = ({ diamonds, setDiamonds, userLevel, xp }) => (
         </div>
       ))}
     </div>
+    <RewardAd onReward={() => setDiamonds(prev => prev + 50)} />
   </div>
 );
 
