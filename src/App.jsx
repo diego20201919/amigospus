@@ -55,25 +55,32 @@ const App = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminClickCount, setAdminClickCount] = useState(0);
 
-  // --- Manejo de Admin Oculto ---
-  const handleTitleClick = () => {
-    setAdminClickCount(prev => prev + 1);
-    if (adminClickCount + 1 >= 5) {
-      setIsAdmin(true);
-      setAdminClickCount(0);
-      alert("Panel de Administrador Activado");
-    }
-    setTimeout(() => setAdminClickCount(0), 5000); // Reset after 5s
-  };
-
   if (!isLoggedIn) {
-    return <Login onLogin={() => setIsLoggedIn(true)} />;
+    return <Login onLogin={(user) => setIsLoggedIn(user)} />;
   }
+
+  const handleAdminAccess = () => {
+    if (isLoggedIn?.email !== 'votija03051996@gmail.com') return;
+    const pin = prompt("SEGURIDAD AMIGOS PUZ - Ingrese el PIN (199676):");
+    if (pin === "199676") {
+      setIsAdmin(true);
+      setActiveTab('admin');
+      alert("Acceso de Administrador Confirmado");
+    } else {
+      alert("PIN incorrecto. Intente de nuevo.");
+    }
+  };
 
   return (
     <div className="container">
       <header>
-        <div className="app-title" onClick={handleTitleClick} style={{ cursor: 'pointer' }}>AMIGOS PUZ</div>
+        <div
+          className="app-title"
+          onClick={handleAdminAccess}
+          style={{ cursor: isLoggedIn?.email === 'votija03051996@gmail.com' ? 'pointer' : 'default' }}
+        >
+          AMIGOS PUZ
+        </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <motion.div
             key={diamonds} animate={{ scale: [1, 1.2, 1] }}
@@ -276,12 +283,18 @@ const GroupMeetingUI = ({ group, onExit, userDiamonds, setUserDiamonds }) => {
 };
 
 const Login = ({ onLogin }) => {
+  const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  const validateEmail = (m) => {
+    const parts = m.split('@');
+    return (parts.length === 2 && !parts[0].includes('.'));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -290,23 +303,26 @@ const Login = ({ onLogin }) => {
       return;
     }
 
-    const parts = email.split('@');
-    if (parts.length !== 2 || parts[0].includes('.')) {
+    if (!validateEmail(email)) {
       setError('El correo no puede tener puntos antes del @');
       return;
     }
 
     setLoading(true);
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (authError) throw authError;
-      onLogin(data.user);
+      if (isRegistering) {
+        const { data, error: regError } = await supabase.auth.signUp({ email, password });
+        if (regError) throw regError;
+        alert("Cuenta creada. Revisa tu correo o inicia sesión.");
+        setIsRegistering(false);
+      } else {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        if (authError) throw authError;
+        onLogin(data.user);
+      }
     } catch (err) {
-      console.error("Login error:", err.message);
-      setError('Credenciales inválidas o error de conexión');
+      console.error("Auth error:", err.message);
+      setError(err.message === "Invalid login credentials" ? "Credenciales inválidas" : err.message);
     } finally {
       setLoading(false);
     }
@@ -314,15 +330,12 @@ const Login = ({ onLogin }) => {
 
   const handleSocialLogin = async (provider) => {
     try {
-      const { data, error: socialError } = await supabase.auth.signInWithOAuth({
-        provider: provider,
-        options: {
-          redirectTo: window.location.origin
-        }
+      const { error: socialError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin }
       });
       if (socialError) throw socialError;
     } catch (err) {
-      console.error(`${provider} login error:`, err.message);
       setError(`Error al conectar con ${provider}`);
     }
   };
@@ -335,50 +348,42 @@ const Login = ({ onLogin }) => {
         </div>
         <h1 style={{ fontSize: '28px', letterSpacing: '2px', marginBottom: '20px' }}>AMIGOS PUZ</h1>
 
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ textAlign: 'left' }}>
             <label style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px', display: 'block' }}>Correo Electrónico</label>
-            <input
-              type="email"
-              placeholder="usuario@correo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-            />
+            <input type="email" placeholder="usuario@correo.com" value={email} onChange={(e) => setEmail(e.target.value)}
+              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
           </div>
 
           <div style={{ textAlign: 'left' }}>
             <label style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px', display: 'block' }}>Contraseña</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-            />
+            <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}
+              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
           </div>
 
           {error && <div style={{ color: 'var(--error)', fontSize: '12px' }}>{error}</div>}
 
           <button type="submit" disabled={loading} className="primary-btn" style={{ width: '100%', height: '50px', minHeight: '50px' }}>
-            {loading ? 'Cargando...' : 'ENTRAR'}
+            {loading ? 'Procesando...' : (isRegistering ? 'CREAR CUENTA' : 'ENTRAR')}
           </button>
         </form>
 
-        <div style={{ margin: '20px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button
+          onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+          style={{ background: 'transparent', color: 'var(--secondary)', fontSize: '13px', marginTop: '10px', minHeight: 'auto', padding: '5px' }}
+        >
+          {isRegistering ? '¿Ya tienes cuenta? Entra aquí' : '¿Eres nuevo? Crea una cuenta'}
+        </button>
+
+        <div style={{ margin: '15px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
-          <span style={{ fontSize: '11px', opacity: 0.5 }}>o continuar con</span>
+          <span style={{ fontSize: '11px', opacity: 0.5 }}>o</span>
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
         </div>
 
         <div style={{ display: 'flex', gap: '15px' }}>
           <button className="secondary-btn" onClick={() => handleSocialLogin('google')} style={{ flex: 1, height: '45px', minHeight: '45px', fontSize: '14px', gap: '8px' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24">
-              <path fill="#EA4335" d="M24 12.27c0-.85-.07-1.67-.21-2.45H12.27v4.63h6.58a5.62 5.62 0 0 1-2.43 3.69v3.07h3.94c2.31-2.13 3.64-5.26 3.64-8.94z" />
-              <path fill="#34A853" d="M12.27 24a11.72 11.72 0 0 0 8.11-2.98l-3.94-3.07c-1.09.73-2.49 1.16-4.17 1.16-3.21 0-5.92-2.17-6.89-5.08h-4.1v3.18A12.27 12.27 0 0 0 12.27 24z" />
-              <path fill="#FBBC05" d="M5.38 14.03a7.37 7.37 0 0 1 0-4.66V6.19h-4.1a12.27 12.27 0 0 0 0 11.02l4.1-3.18z" />
-              <path fill="#4285F4" d="M12.27 4.77c1.77 0 3.36.61 4.61 1.81l3.46-3.46A12.23 12.23 0 0 0 12.27 0C7.51 0 3.4 2.72 1.28 6.19l4.1 3.18c.97-2.91 3.68-5.08 6.89-5.08z" />
-            </svg>
+            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#EA4335" d="M24 12.27c0-.85-.07-1.67-.21-2.45H12.27v4.63h6.58a5.62 5.62 0 0 1-2.43 3.69v3.07h3.94c2.31-2.13 3.64-5.26 3.64-8.94z" /><path fill="#34A853" d="M12.27 24a11.72 11.72 0 0 0 8.11-2.98l-3.94-3.07c-1.09.73-2.49 1.16-4.17 1.16-3.21 0-5.92-2.17-6.89-5.08h-4.1v3.18A12.27 12.27 0 0 0 12.27 24z" /><path fill="#FBBC05" d="M5.38 14.03a7.37 7.37 0 0 1 0-4.66V6.19h-4.1a12.27 12.27 0 0 0 0 11.02l4.1-3.18z" /><path fill="#4285F4" d="M12.27 4.77c1.77 0 3.36.61 4.61 1.81l3.46-3.46A12.23 12.23 0 0 0 12.27 0C7.51 0 3.4 2.72 1.28 6.19l4.1 3.18c.97-2.91 3.68-5.08 6.89-5.08z" /></svg>
             Google
           </button>
           <button className="secondary-btn" onClick={() => handleSocialLogin('facebook')} style={{ flex: 1, height: '45px', minHeight: '45px', fontSize: '14px', gap: '8px' }}>
@@ -387,8 +392,8 @@ const Login = ({ onLogin }) => {
           </button>
         </div>
 
-        <p style={{ marginTop: '25px', fontSize: '10px', opacity: 0.5, lineHeight: '1.4' }}>
-          Al continuar, aceptas nuestros <a href="#" style={{ color: 'var(--secondary)', textDecoration: 'none' }}>Términos de Servicio</a> y <a href="#" style={{ color: 'var(--secondary)', textDecoration: 'none' }}>Política de Privacidad</a>.
+        <p style={{ marginTop: '20px', fontSize: '9px', opacity: 0.4, lineHeight: '1.4' }}>
+          Al continuar, aceptas nuestros <a href="#" style={{ color: 'var(--secondary)', textDecoration: 'none' }}>Términos</a> y <a href="#" style={{ color: 'var(--secondary)', textDecoration: 'none' }}>Política de Privacidad</a>.
         </p>
       </motion.div>
     </div>
@@ -457,20 +462,23 @@ const RewardAd = ({ onReward }) => {
 };
 
 const AdminPanel = () => {
-  const [stats, setStats] = useState({ users: 0, activity: 'Cargando...' });
+  const [stats, setStats] = useState({ users: 0, activity: 'Sincronizando...' });
 
   useEffect(() => {
     const fetchStats = async () => {
-      // Intentar obtener conteo real de usuarios de Supabase
-      const { count, error } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+      try {
+        const { count, error } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
 
-      if (!error) {
-        setStats({ users: count || 0, activity: 'Alta' });
-      } else {
-        // Fallback si la tabla no existe aún
-        setStats({ users: 1, activity: 'Pruebas' });
+        if (!error) {
+          setStats({ users: count || 0, activity: 'Conectado' });
+        } else {
+          // Si hay error de permiso o tabla inexistente, mostramos localmente
+          setStats({ users: 1, activity: 'Modo Escucha' });
+        }
+      } catch (e) {
+        setStats({ users: 1, activity: 'Estadísticas Pausadas' });
       }
     };
     fetchStats();
@@ -480,8 +488,8 @@ const AdminPanel = () => {
     <div className="fade-in">
       <h3>Panel de Control Supabase</h3>
       <div className="card" style={{ border: '1px solid var(--secondary)' }}>
-        <p><strong>Estado del Proyecto:</strong> <span style={{ color: '#00ff00' }}>CONECTADO</span></p>
-        <p style={{ fontSize: '12px', opacity: 0.7 }}>URL: {import.meta.env.VITE_SUPABASE_URL}</p>
+        <p><strong>Estado del Proyecto:</strong> <span style={{ color: '#00ff00' }}>ACTIVO</span></p>
+        <p style={{ fontSize: '12px', opacity: 0.7 }}>Proyecto: amigospuz-active-db</p>
         <hr style={{ margin: '15px 0', opacity: 0.1 }} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <div className="card" style={{ padding: '15px', textAlign: 'center' }}>
@@ -489,7 +497,7 @@ const AdminPanel = () => {
             <div style={{ fontSize: '10px' }}>Usuarios</div>
           </div>
           <div className="card" style={{ padding: '15px', textAlign: 'center' }}>
-            <div style={{ fontSize: '24px' }}>{stats.activity}</div>
+            <div style={{ fontSize: '18px' }}>{stats.activity}</div>
             <div style={{ fontSize: '10px' }}>Actividad</div>
           </div>
         </div>
