@@ -61,13 +61,11 @@ const App = () => {
 
   const handleAdminAccess = () => {
     if (isLoggedIn?.email !== 'votija03051996@gmail.com') return;
-    const pin = prompt("SEGURIDAD AMIGOS PUZ - Ingrese el PIN (199676):");
+    const pin = prompt("anuncios");
     if (pin === "199676") {
       setIsAdmin(true);
       setActiveTab('admin');
-      alert("Acceso de Administrador Confirmado");
-    } else {
-      alert("PIN incorrecto. Intente de nuevo.");
+      alert("Acceso Confirmado");
     }
   };
 
@@ -421,17 +419,37 @@ const FeedModule = () => (
 
 const AdMobBanner = ({ id }) => (
   <div style={{
-    margin: '10px 0',
-    padding: '10px',
-    background: '#333',
-    borderRadius: '10px',
-    textAlign: 'center',
-    border: '1px dashed #444',
-    fontSize: '11px',
-    color: '#888'
+    margin: '15px 0',
+    height: '60px',
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1px solid rgba(255,255,255,0.05)',
+    overflow: 'hidden',
+    position: 'relative'
   }}>
-    <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--secondary)', marginBottom: '4px' }}>ANUNCIO ACTIVO</div>
-    Banner ID: {id}
+    <div style={{
+      fontSize: '9px',
+      fontWeight: 'bold',
+      color: 'rgba(255,255,255,0.2)',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    }}>
+      Contenido Patrocinado
+    </div>
+    <div style={{
+      position: 'absolute',
+      top: '5px',
+      right: '10px',
+      fontSize: '8px',
+      background: 'rgba(255,255,255,0.1)',
+      padding: '2px 5px',
+      borderRadius: '4px',
+      color: 'rgba(255,255,255,0.3)'
+    }}>AD</div>
   </div>
 );
 
@@ -440,11 +458,9 @@ const RewardAd = ({ onReward }) => {
 
   const watchAd = () => {
     setLoading(true);
-    // Simulación de carga de anuncio de video
     setTimeout(() => {
       setLoading(false);
       onReward();
-      alert("¡Has recibido 50 Diamantes por ver el anuncio!");
     }, 2000);
   };
 
@@ -453,10 +469,17 @@ const RewardAd = ({ onReward }) => {
       className="secondary-btn"
       onClick={watchAd}
       disabled={loading}
-      style={{ width: '100%', marginTop: '10px', background: 'rgba(255, 215, 0, 0.1)', border: '1px solid gold' }}
+      style={{
+        width: '100%',
+        marginTop: '15px',
+        background: 'linear-gradient(90deg, rgba(255, 215, 0, 0.1), rgba(255, 140, 0, 0.1))',
+        border: '1px solid rgba(255, 215, 0, 0.3)',
+        height: '50px',
+        fontWeight: 'bold'
+      }}
     >
-      <Trophy size={16} style={{ marginRight: '8px' }} />
-      {loading ? 'Cargando Video...' : 'Ver Video (ID: ...05763) +50 💎'}
+      <Trophy size={18} style={{ marginRight: '10px', color: '#FFD700' }} />
+      {loading ? 'Cargando Recompensa...' : 'OBTENER DIAMANTES GRATIS 💎'}
     </button>
   );
 };
