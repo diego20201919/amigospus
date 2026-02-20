@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from './lib/supabase';
 import {
   Camera,
   Phone,
@@ -277,21 +278,40 @@ const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
+
     if (!email || !password) {
       setError('Por favor complete todos los campos');
       return;
     }
 
+    // Regla Crítica: No puntos antes del @
     const parts = email.split('@');
     if (parts.length !== 2 || parts[0].includes('.')) {
       setError('El correo no puede tener puntos antes del @');
       return;
     }
 
-    onLogin();
+    setLoading(true);
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      onLogin(data.user);
+    } catch (err) {
+      console.error("Login error:", err.message);
+      setError('Credenciales inválidas o error de conexión');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -305,7 +325,7 @@ const Login = ({ onLogin }) => {
             <label style={{ fontSize: '12px', opacity: 0.7, marginBottom: '5px', display: 'block' }}>Correo Electrónico</label>
             <input
               type="email"
-              placeholder="Ej: usuario@correo.com"
+              placeholder="usuario@correo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{ width: '100%', padding: '12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
@@ -325,7 +345,9 @@ const Login = ({ onLogin }) => {
 
           {error && <div style={{ color: 'var(--error)', fontSize: '13px', marginTop: '10px' }}>{error}</div>}
 
-          <button type="submit" className="primary-btn" style={{ width: '100%', marginTop: '10px' }}>ENTRAR</button>
+          <button type="submit" disabled={loading} className="primary-btn" style={{ width: '100%', marginTop: '10px' }}>
+            {loading ? 'Entrando...' : 'ENTRAR'}
+          </button>
         </form>
       </motion.div>
     </div>
@@ -368,14 +390,31 @@ const AdMobBanner = () => (
 );
 
 const AdminPanel = () => {
-  const [stats, setStats] = useState({ users: 120, reports: 3, activity: 'Alta' });
+  const [stats, setStats] = useState({ users: 0, activity: 'Cargando...' });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      // Intentar obtener conteo real de usuarios de Supabase
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      if (!error) {
+        setStats({ users: count || 0, activity: 'Alta' });
+      } else {
+        // Fallback si la tabla no existe aún
+        setStats({ users: 1, activity: 'Pruebas' });
+      }
+    };
+    fetchStats();
+  }, []);
 
   return (
     <div className="fade-in">
       <h3>Panel de Control Supabase</h3>
       <div className="card" style={{ border: '1px solid var(--secondary)' }}>
-        <p><strong>Estado del Proyecto:</strong> <span style={{ color: '#00ff00' }}>ACTIVO</span></p>
-        <p style={{ fontSize: '12px', opacity: 0.7 }}>Proyecto: amigospuz-active-db</p>
+        <p><strong>Estado del Proyecto:</strong> <span style={{ color: '#00ff00' }}>CONECTADO</span></p>
+        <p style={{ fontSize: '12px', opacity: 0.7 }}>URL: {import.meta.env.VITE_SUPABASE_URL}</p>
         <hr style={{ margin: '15px 0', opacity: 0.1 }} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           <div className="card" style={{ padding: '15px', textAlign: 'center' }}>
@@ -383,11 +422,11 @@ const AdminPanel = () => {
             <div style={{ fontSize: '10px' }}>Usuarios</div>
           </div>
           <div className="card" style={{ padding: '15px', textAlign: 'center' }}>
-            <div style={{ fontSize: '24px' }}>{stats.reports}</div>
-            <div style={{ fontSize: '10px' }}>Reportes</div>
+            <div style={{ fontSize: '24px' }}>{stats.activity}</div>
+            <div style={{ fontSize: '10px' }}>Actividad</div>
           </div>
         </div>
-        <button className="primary-btn" style={{ width: '100%', marginTop: '20px' }}>GESTIONAR USUARIOS</button>
+        <button className="primary-btn" style={{ width: '100%', marginTop: '20px' }}>SINCRONIZAR BASE DE DATOS</button>
       </div>
     </div>
   );
