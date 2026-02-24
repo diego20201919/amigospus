@@ -1,0 +1,6 @@
+{
+  "appId": "com.amigospuz.app",
+  "appName": "AMIGOS PUZ",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

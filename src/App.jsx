@@ -1,41 +1,34 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from './lib/supabase';
+import { auth, db } from './lib/firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  FacebookAuthProvider
+} from "firebase/auth";
 import {
   Camera,
-  Phone,
-  Mic,
-  MicOff,
-  Video,
-  VideoOff,
   Users,
   UserPlus,
   MessageSquare,
-  Globe,
-  MoreVertical,
   ChevronLeft,
   X,
   Send,
-  Volume2,
-  Eye,
-  EyeOff,
-  LayoutGrid,
-  Settings,
-  Lock,
-  Unlock,
-  VolumeX,
   Gem,
-  Gift,
-  Heart,
-  Star,
-  Coffee,
-  Ticket,
   Sparkles,
   Trophy,
-  Facebook
+  Facebook,
+  Gamepad2,
+  PlayCircle,
+  Lock,
+  Star,
+  VideoOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Variantes de Animación Globales ---
+// --- Variantes de Animación ---
 const pageVariants = {
   initial: { opacity: 0, scale: 0.9 },
   animate: { opacity: 1, scale: 1 },
@@ -43,70 +36,74 @@ const pageVariants = {
 };
 
 const App = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('feed');
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [inCall, setInCall] = useState(false);
   const [inGroupCall, setInGroupCall] = useState(false);
   const [diamonds, setDiamonds] = useState(1000);
   const [userLevel, setUserLevel] = useState(5);
   const [xp, setXp] = useState(45);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminClickCount, setAdminClickCount] = useState(0);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
 
-  if (!isLoggedIn) {
-    return <Login onLogin={(user) => setIsLoggedIn(user)} />;
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) return <div className="container" style={{justifyContent:'center', alignItems:'center'}}><div className="avatar-pulse">Cargando...</div></div>;
+
+  if (!user) {
+    return <Login />;
   }
 
   const handleAdminAccess = () => {
-    if (isLoggedIn?.email !== 'votija03051996@gmail.com') return;
-    const pin = prompt("anuncios");
-    if (pin === "199676") {
+    if (user.email !== 'votija03051996@gmail.com') return;
+    setShowPinModal(true);
+  };
+
+  const verifyPin = () => {
+    if (pinInput === "199676") {
       setIsAdmin(true);
       setActiveTab('admin');
-      alert("Acceso Confirmado");
+      setShowPinModal(false);
+      setPinInput('');
+    } else {
+      alert("PIN Incorrecto");
+      setPinInput('');
     }
   };
 
   return (
     <div className="container">
       <header>
-        <div
-          className="app-title"
-          onClick={handleAdminAccess}
-          style={{ cursor: isLoggedIn?.email === 'votija03051996@gmail.com' ? 'pointer' : 'default' }}
-        >
+        <div className="app-title" onClick={handleAdminAccess} style={{ cursor: user.email === 'votija03051996@gmail.com' ? 'pointer' : 'default' }}>
           AMIGOS PUZ
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <motion.div
-            key={diamonds} animate={{ scale: [1, 1.2, 1] }}
-            className="diamond-badge"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0, 210, 255, 0.15)', padding: '6px 12px', borderRadius: '12px', border: '1px solid var(--secondary)' }}
-          >
-            <Gem size={18} color="var(--secondary)" />
-            <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{diamonds}</span>
+          <motion.div key={diamonds} animate={{ scale: [1, 1.2, 1] }} className="diamond-badge">
+            <Gem size={18} color="var(--primary)" />
+            <span>{diamonds}</span>
           </motion.div>
-          <div style={{ background: 'var(--primary)', padding: '4px 8px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}>
-            LVL {userLevel}
-          </div>
+          <div className="lvl-badge">LVL {userLevel}</div>
         </div>
       </header>
 
       <main className="content-area">
         <AnimatePresence mode="wait">
           {inGroupCall ? (
-            <GroupMeetingUI key="meeting" group={selectedGroup} onExit={() => setInGroupCall(false)} userDiamonds={diamonds} setUserDiamonds={setDiamonds} />
+            <GroupMeetingUI key="meeting" onExit={() => setInGroupCall(false)} userDiamonds={diamonds} setUserDiamonds={setDiamonds} />
           ) : selectedFriend || selectedGroup ? (
             <ChatArea
-              key="chat"
               friend={selectedFriend || selectedGroup}
-              isGroup={!!selectedGroup}
               onBack={() => { setSelectedFriend(null); setSelectedGroup(null); }}
               onJoinCall={() => setInGroupCall(true)}
-              userDiamonds={diamonds}
-              setUserDiamonds={setDiamonds}
             />
           ) : (
             <motion.div key={activeTab} variants={pageVariants} initial="initial" animate="animate" exit="exit" style={{ height: '100%' }}>
@@ -121,414 +118,164 @@ const App = () => {
         </AnimatePresence>
       </main>
 
-      {
-        !selectedFriend && !selectedGroup && !inGroupCall && (
-          <nav>
-            <NavButton active={activeTab === 'feed'} onClick={() => setActiveTab('feed')} icon={<MessageSquare />} label="Muro" />
-            <NavButton active={activeTab === 'friends'} onClick={() => setActiveTab('friends')} icon={<Users />} label="Amigos" />
-            <NavButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} icon={<UserPlus />} label="Grupos" />
-            <NavButton active={activeTab === 'store'} onClick={() => setActiveTab('store')} icon={<Gem />} label="Tienda" />
-            {isAdmin ? (
-              <NavButton active={activeTab === 'admin'} onClick={() => setActiveTab('admin')} icon={<Lock />} label="Admin" />
-            ) : (
-              <NavButton active={activeTab === 'camera'} onClick={() => setActiveTab('camera')} icon={<Camera />} label="Cmara" />
-            )}
-          </nav>
-        )
-      }
-    </div >
-  );
-};
-
-// --- ANIMACIÓN DE REGALO VOLADOR ---
-const FlyingGift = ({ gift, fromRect, toRect, onComplete }) => {
-  if (!fromRect || !toRect) return null;
-
-  const startX = fromRect.left + fromRect.width / 2 - 40;
-  const startY = fromRect.top + fromRect.height / 2 - 40;
-  const endX = toRect.left + toRect.width / 2 - 40;
-  const endY = toRect.top + toRect.height / 2 - 40;
-
-  return (
-    <motion.div
-      initial={{ left: startX, top: startY, scale: 0, opacity: 0 }}
-      animate={{
-        left: [startX, (startX + endX) / 2, endX],
-        top: [startY, startY - 150, endY],
-        scale: [1, 2, 1.5],
-        opacity: [1, 1, 1],
-        rotate: [0, 180, 360]
-      }}
-      transition={{ duration: 1.2, ease: "easeInOut" }}
-      onAnimationComplete={onComplete}
-      style={{
-        position: 'fixed',
-        zIndex: 9999,
-        fontSize: '60px',
-        pointerEvents: 'none',
-        filter: 'drop-shadow(0 0 20px var(--secondary))'
-      }}
-    >
-      {gift.id === 1 ? '🌹' : gift.id === 2 ? '☕' : gift.id === 3 ? '❤️' : gift.id === 4 ? '⭐' : '👑'}
-    </motion.div>
-  );
-};
-
-const GroupMeetingUI = ({ group, onExit, userDiamonds, setUserDiamonds }) => {
-  const videoRef = useRef(null);
-  const mySlotRef = useRef(null);
-  const slotRefs = useRef({});
-  const [activeFlyingGift, setActiveFlyingGift] = useState(null);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [videoOn, setVideoOn] = useState(true);
-
-  useEffect(() => {
-    if (videoOn) {
-      navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
-        if (videoRef.current) videoRef.current.srcObject = s;
-      });
-    }
-  }, [videoOn]);
-
-  const participants = [
-    { id: 1, name: 'Ana Luz', color: '#9d50bb' },
-    { id: 2, name: 'Juan C.', color: '#00d2ff' },
-    { id: 3, name: 'Elena', color: '#ff4b2b' },
-  ];
-
-  const sendGift = (gift) => {
-    if (userDiamonds < gift.price) return;
-    setUserDiamonds(userDiamonds - gift.price);
-
-    const fromRect = mySlotRef.current.getBoundingClientRect();
-    const targetSlot = slotRefs.current[selectedUser.id];
-    const toRect = targetSlot.getBoundingClientRect();
-
-    setActiveFlyingGift({ gift, fromRect, toRect });
-    setSelectedUser(null);
-  };
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 2000, display: 'flex', flexDirection: 'column' }}>
       <AnimatePresence>
-        {activeFlyingGift && (
-          <FlyingGift
-            key="flying"
-            gift={activeFlyingGift.gift}
-            fromRect={activeFlyingGift.fromRect}
-            toRect={activeFlyingGift.toRect}
-            onComplete={() => setActiveFlyingGift(null)}
-          />
-        )}
-      </AnimatePresence>
-
-      <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', background: 'rgba(255,255,255,0.05)' }}>
-        <h2 style={{ fontSize: '18px' }}>Sala: {group?.name || 'Amigos Puz Meeting'}</h2>
-        <button className="icon-btn secondary-btn" onClick={onExit}><X /></button>
-      </div>
-
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '8px' }}>
-        <motion.div
-          ref={mySlotRef}
-          className="card" style={{ padding: 0, overflow: 'hidden', position: 'relative', border: '3px solid var(--primary)' }}
-          onClick={() => setSelectedUser({ id: 'me', name: 'Tú' })}
-        >
-          {videoOn ? <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div className="avatar" style={{ width: 80, height: 80, margin: 'auto' }}>YO</div>}
-          <div style={{ position: 'absolute', bottom: 8, left: 8, fontSize: '12px', background: 'rgba(0,0,0,0.5)', padding: '2px 8px', borderRadius: '4px' }}>Tú</div>
-        </motion.div>
-
-        {participants.map(p => (
-          <motion.div
-            key={p.id}
-            ref={el => slotRefs.current[p.id] = el}
-            className="card" style={{ padding: 0, background: '#111', cursor: 'pointer', position: 'relative' }}
-            onClick={() => setSelectedUser(p)}
-          >
-            <div className="avatar" style={{ width: 70, height: 70, margin: 'auto', background: p.color }}>{p.name[0]}</div>
-            <div style={{ position: 'absolute', bottom: 8, left: 8, fontSize: '12px' }}>{p.name}</div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Controles */}
-      <div style={{ padding: '20px', display: 'flex', justifyContent: 'center', gap: '20px', background: 'rgba(0,0,0,0.8)' }}>
-        <button className="icon-btn secondary-btn" onClick={() => setVideoOn(!videoOn)}>{videoOn ? <Video /> : <VideoOff />}</button>
-        <button className="primary-btn" style={{ background: 'var(--error)', padding: '0 40px' }} onClick={onExit}>SALIR</button>
-      </div>
-
-      {/* Menú de Regalo Overlay */}
-      <AnimatePresence>
-        {selectedUser && selectedUser.id !== 'me' && (
-          <motion.div
-            initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
-            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--surface-opaque)', padding: '30px', borderRadius: '30px 30px 0 0', zIndex: 3000 }}
-          >
-            <div style={{ textAlign: 'center', marginBottom: '20px', fontWeight: 'bold' }}>Enviar a {selectedUser.name}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
-              {[{ id: 1, name: 'Rosa', price: 0 }, { id: 2, name: 'Café', price: 10 }, { id: 3, name: '❤️', price: 50 }, { id: 4, name: '⭐', price: 100 }, { id: 5, name: '👑', price: 500 }].map(g => (
-                <button key={g.id} className="secondary-btn" style={{ flexDirection: 'column', padding: '15px 0' }} onClick={() => sendGift(g)}>
-                  <span style={{ fontSize: '24px' }}>{g.id === 1 ? '🌹' : g.id === 2 ? '☕' : g.id === 3 ? '❤️' : g.id === 4 ? '⭐' : '👑'}</span>
-                  <span style={{ fontSize: '10px' }}>{g.price} 💎</span>
-                </button>
-              ))}
-            </div>
-            <button className="secondary-btn" style={{ width: '100%', marginTop: '20px' }} onClick={() => setSelectedUser(null)}>Cancelar</button>
+        {showPinModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="modal-overlay">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="card modal-card">
+              <Lock size={40} color="var(--primary)" style={{ marginBottom: '15px' }} />
+              <h3>Acceso Privado</h3>
+              <input
+                type="password"
+                inputMode="numeric"
+                placeholder="PIN"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                <button className="secondary-btn" onClick={() => setShowPinModal(false)}>X</button>
+                <button className="primary-btn" style={{flex:1}} onClick={verifyPin}>ENTRAR</button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {!selectedFriend && !selectedGroup && !inGroupCall && (
+        <nav>
+          <NavButton active={activeTab === 'feed'} onClick={() => setActiveTab('feed')} icon={<MessageSquare />} label="Muro" />
+          <NavButton active={activeTab === 'friends'} onClick={() => setActiveTab('friends')} icon={<Users />} label="Amigos" />
+          <NavButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} icon={<UserPlus />} label="Grupos" />
+          <NavButton active={activeTab === 'store'} onClick={() => setActiveTab('store')} icon={<Gem />} label="Tienda" />
+          {isAdmin ? (
+            <NavButton active={activeTab === 'admin'} onClick={() => setActiveTab('admin')} icon={<Lock />} label="Admin" />
+          ) : (
+            <NavButton active={activeTab === 'camera'} onClick={() => setActiveTab('camera')} icon={<Camera />} label="Cámara" />
+          )}
+        </nav>
+      )}
     </div>
   );
 };
 
-const Login = ({ onLogin }) => {
+const Login = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const validateEmail = (m) => {
-    const parts = m.split('@');
-    return (parts.length === 2 && !parts[0].includes('.'));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    if (!email || !password) {
-      setError('Por favor complete todos los campos');
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      setError('El correo no puede tener puntos antes del @');
-      return;
-    }
-
     setLoading(true);
     try {
       if (isRegistering) {
-        const { data, error: regError } = await supabase.auth.signUp({ email, password });
-        if (regError) throw regError;
-        alert("Cuenta creada. Revisa tu correo o inicia sesión.");
-        setIsRegistering(false);
+        await createUserWithEmailAndPassword(auth, email, password);
       } else {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-        if (authError) throw authError;
-        onLogin(data.user);
+        await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err) {
-      console.error("Auth error:", err.message);
-      setError(err.message === "Invalid login credentials" ? "Credenciales inválidas" : err.message);
+      setError("Error de autenticación: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSocialLogin = async (provider) => {
+  const handleSocial = async (providerName) => {
+    const provider = providerName === 'google' ? new GoogleAuthProvider() : new FacebookAuthProvider();
     try {
-      const { error: socialError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: window.location.origin }
-      });
-      if (socialError) throw socialError;
+      await signInWithPopup(auth, provider);
     } catch (err) {
-      setError(`Error al conectar con ${provider}`);
+      setError("Error con " + providerName);
     }
   };
 
   return (
     <div className="container" style={{ justifyContent: 'center', alignItems: 'center' }}>
-      <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="card" style={{ textAlign: 'center', padding: '30px 40px', width: '90%', maxWidth: '400px' }}>
-        <div style={{ width: '60px', height: '60px', background: 'var(--primary)', borderRadius: '20px', margin: '0 auto 15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Sparkles color="white" size={30} />
-        </div>
-        <h1 style={{ fontSize: '28px', letterSpacing: '2px', marginBottom: '20px' }}>AMIGOS PUZ</h1>
-
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ textAlign: 'left' }}>
-            <label style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px', display: 'block' }}>Correo Electrónico</label>
-            <input type="email" placeholder="usuario@correo.com" value={email} onChange={(e) => setEmail(e.target.value)}
-              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-          </div>
-
-          <div style={{ textAlign: 'left' }}>
-            <label style={{ fontSize: '11px', opacity: 0.7, marginBottom: '4px', display: 'block' }}>Contraseña</label>
-            <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
-          </div>
-
-          {error && <div style={{ color: 'var(--error)', fontSize: '12px' }}>{error}</div>}
-
-          <button type="submit" disabled={loading} className="primary-btn" style={{ width: '100%', height: '50px', minHeight: '50px' }}>
-            {loading ? 'Procesando...' : (isRegistering ? 'CREAR CUENTA' : 'ENTRAR')}
+      <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="card login-card">
+        <div className="login-logo"><Sparkles color="white" size={30} /></div>
+        <h1>AMIGOS PUZ</h1>
+        <form onSubmit={handleSubmit} className="login-form">
+          <input type="email" placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          {error && <p className="error-text">{error}</p>}
+          <button type="submit" className="primary-btn" disabled={loading}>
+            {loading ? 'Cargando...' : (isRegistering ? 'CREAR CUENTA' : 'ENTRAR')}
           </button>
         </form>
-
-        <button
-          onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
-          style={{ background: 'transparent', color: 'var(--secondary)', fontSize: '13px', marginTop: '10px', minHeight: 'auto', padding: '5px' }}
-        >
-          {isRegistering ? '¿Ya tienes cuenta? Entra aquí' : '¿Eres nuevo? Crea una cuenta'}
+        <button onClick={() => setIsRegistering(!isRegistering)} className="toggle-auth-btn">
+          {isRegistering ? '¿Ya tienes cuenta? Entra' : '¿Nuevo? Regístrate'}
         </button>
-
-        <div style={{ margin: '15px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
-          <span style={{ fontSize: '11px', opacity: 0.5 }}>o</span>
-          <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+        <div className="social-login">
+          <button onClick={() => handleSocial('google')} className="secondary-btn social-btn">Google</button>
+          <button onClick={() => handleSocial('facebook')} className="secondary-btn social-btn">Facebook</button>
         </div>
-
-        <div style={{ display: 'flex', gap: '15px' }}>
-          <button className="secondary-btn" onClick={() => handleSocialLogin('google')} style={{ flex: 1, height: '45px', minHeight: '45px', fontSize: '14px', gap: '8px' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#EA4335" d="M24 12.27c0-.85-.07-1.67-.21-2.45H12.27v4.63h6.58a5.62 5.62 0 0 1-2.43 3.69v3.07h3.94c2.31-2.13 3.64-5.26 3.64-8.94z" /><path fill="#34A853" d="M12.27 24a11.72 11.72 0 0 0 8.11-2.98l-3.94-3.07c-1.09.73-2.49 1.16-4.17 1.16-3.21 0-5.92-2.17-6.89-5.08h-4.1v3.18A12.27 12.27 0 0 0 12.27 24z" /><path fill="#FBBC05" d="M5.38 14.03a7.37 7.37 0 0 1 0-4.66V6.19h-4.1a12.27 12.27 0 0 0 0 11.02l4.1-3.18z" /><path fill="#4285F4" d="M12.27 4.77c1.77 0 3.36.61 4.61 1.81l3.46-3.46A12.23 12.23 0 0 0 12.27 0C7.51 0 3.4 2.72 1.28 6.19l4.1 3.18c.97-2.91 3.68-5.08 6.89-5.08z" /></svg>
-            Google
-          </button>
-          <button className="secondary-btn" onClick={() => handleSocialLogin('facebook')} style={{ flex: 1, height: '45px', minHeight: '45px', fontSize: '14px', gap: '8px' }}>
-            <Facebook size={18} color="#1877F2" fill="#1877F2" />
-            Facebook
-          </button>
-        </div>
-
-        <p style={{ marginTop: '20px', fontSize: '9px', opacity: 0.4, lineHeight: '1.4' }}>
-          Al continuar, aceptas nuestros <a href="#" style={{ color: 'var(--secondary)', textDecoration: 'none' }}>Términos</a> y <a href="#" style={{ color: 'var(--secondary)', textDecoration: 'none' }}>Política de Privacidad</a>.
+        <p className="legal-footer">
+          Al continuar, aceptas nuestros <a href="/terminos.html">Términos</a> y <a href="/privacidad.html">Privacidad</a>.
         </p>
       </motion.div>
     </div>
   );
 };
 
+const StoreModule = ({ diamonds, setDiamonds, userLevel, xp }) => (
+  <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="card level-card">
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span>Nivel {userLevel}</span>
+        <Trophy size={20} />
+      </div>
+      <div className="xp-bar">
+        <motion.div initial={{ width: 0 }} animate={{ width: `${xp}%` }} className="xp-fill"></motion.div>
+      </div>
+    </div>
+
+    <div className="card reward-hero">
+      <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, repeat: Infinity }} className="shield-container">
+        <div className="shield-inner">
+          <Gamepad2 size={40} color="white" />
+          <div className="shield-text">PLAY</div>
+        </div>
+        <Star className="shield-star" fill="#f1c40f" size={24} />
+      </motion.div>
+      <h2>Diamantes: {diamonds}</h2>
+      <button className="primary-btn reward-btn" onClick={() => setDiamonds(diamonds + 100)}>
+        <PlayCircle size={24} />
+        <div>
+          <span style={{fontSize:'12px', opacity:0.8}}>Ver Video para ganar</span>
+          <span style={{display:'block', fontWeight:'bold'}}>100 Diamantes</span>
+        </div>
+      </button>
+    </div>
+
+    <div className="pack-grid">
+      {[500, 1000, 5000, 10000].map(amt => (
+        <div key={amt} className="card pack-card" onClick={() => setDiamonds(diamonds + amt)}>
+          <Gem size={30} color="var(--primary)" />
+          <div className="pack-amt">+{amt}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// --- OTROS COMPONENTES ---
 const FeedModule = () => (
   <div className="fade-in">
     <h3>Muro Social</h3>
-    <AdMobBanner id="ca-app-pub-5758697662837949/7204898837" />
+    <div className="card" style={{height:'100px', opacity:0.3, display:'flex', alignItems:'center', justifyContent:'center'}}>Anuncio</div>
     {[1, 2].map(i => (
       <div key={i} className="card" style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-          <div className="avatar" style={{ width: 40, height: 40 }}>U</div>
+          <div className="avatar">U</div>
           <div>Publicación {i}</div>
         </div>
-        <div style={{ height: '150px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}></div>
+        <div className="post-media"></div>
       </div>
     ))}
-    <AdMobBanner id="ca-app-pub-5758697662837949/7204898837" />
   </div>
 );
-
-// --- COMPONENTES DE REPARACIÓN (ADMOB & ADMIN) ---
-
-const AdMobBanner = ({ id }) => (
-  <div style={{
-    margin: '15px 0',
-    height: '60px',
-    background: 'rgba(255,255,255,0.03)',
-    borderRadius: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '1px solid rgba(255,255,255,0.05)',
-    overflow: 'hidden',
-    position: 'relative'
-  }}>
-    <div style={{
-      fontSize: '9px',
-      fontWeight: 'bold',
-      color: 'rgba(255,255,255,0.2)',
-      textTransform: 'uppercase',
-      letterSpacing: '1px'
-    }}>
-      Contenido Patrocinado
-    </div>
-    <div style={{
-      position: 'absolute',
-      top: '5px',
-      right: '10px',
-      fontSize: '8px',
-      background: 'rgba(255,255,255,0.1)',
-      padding: '2px 5px',
-      borderRadius: '4px',
-      color: 'rgba(255,255,255,0.3)'
-    }}>AD</div>
-  </div>
-);
-
-const RewardAd = ({ onReward }) => {
-  const [loading, setLoading] = useState(false);
-
-  const watchAd = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onReward();
-    }, 2000);
-  };
-
-  return (
-    <button
-      className="secondary-btn"
-      onClick={watchAd}
-      disabled={loading}
-      style={{
-        width: '100%',
-        marginTop: '15px',
-        background: 'linear-gradient(90deg, rgba(255, 215, 0, 0.1), rgba(255, 140, 0, 0.1))',
-        border: '1px solid rgba(255, 215, 0, 0.3)',
-        height: '50px',
-        fontWeight: 'bold'
-      }}
-    >
-      <Trophy size={18} style={{ marginRight: '10px', color: '#FFD700' }} />
-      {loading ? 'Cargando Recompensa...' : 'OBTENER DIAMANTES GRATIS 💎'}
-    </button>
-  );
-};
-
-const AdminPanel = () => {
-  const [stats, setStats] = useState({ users: 0, activity: 'Sincronizando...' });
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { count, error } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
-
-        if (!error) {
-          setStats({ users: count || 0, activity: 'Conectado' });
-        } else {
-          // Si hay error de permiso o tabla inexistente, mostramos localmente
-          setStats({ users: 1, activity: 'Modo Escucha' });
-        }
-      } catch (e) {
-        setStats({ users: 1, activity: 'Estadísticas Pausadas' });
-      }
-    };
-    fetchStats();
-  }, []);
-
-  return (
-    <div className="fade-in">
-      <h3>Panel de Control Supabase</h3>
-      <div className="card" style={{ border: '1px solid var(--secondary)' }}>
-        <p><strong>Estado del Proyecto:</strong> <span style={{ color: '#00ff00' }}>ACTIVO</span></p>
-        <p style={{ fontSize: '12px', opacity: 0.7 }}>Proyecto: amigospuz-active-db</p>
-        <hr style={{ margin: '15px 0', opacity: 0.1 }} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <div className="card" style={{ padding: '15px', textAlign: 'center' }}>
-            <div style={{ fontSize: '24px' }}>{stats.users}</div>
-            <div style={{ fontSize: '10px' }}>Usuarios</div>
-          </div>
-          <div className="card" style={{ padding: '15px', textAlign: 'center' }}>
-            <div style={{ fontSize: '18px' }}>{stats.activity}</div>
-            <div style={{ fontSize: '10px' }}>Actividad</div>
-          </div>
-        </div>
-        <button className="primary-btn" style={{ width: '100%', marginTop: '20px' }}>SINCRONIZAR BASE DE DATOS</button>
-      </div>
-    </div>
-  );
-};
 
 const FriendsList = ({ onSelect }) => (
   <div className="fade-in">
@@ -546,108 +293,68 @@ const GroupsModule = ({ onSelect }) => (
   <div className="fade-in">
     <h3>Tus Grupos</h3>
     {['Grupo de Apoyo', 'Cine Club'].map((name, i) => (
-      <div key={i} className="friend-item" style={{ background: 'rgba(157, 80, 187, 0.1)' }} onClick={() => onSelect({ id: i + 200, name })}>
-        <div className="avatar" style={{ background: 'var(--primary)' }}><Users /></div>
+      <div key={i} className="friend-item group-item" onClick={() => onSelect({ id: i + 200, name })}>
+        <div className="avatar"><Users /></div>
         <div>{name}</div>
       </div>
     ))}
   </div>
 );
 
-const StoreModule = ({ diamonds, setDiamonds, userLevel, xp }) => (
-  <div className="fade-in">
-    <h3>Tienda de Lujo</h3>
-    <div className="card" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <span>Nivel {userLevel}</span>
-        <Trophy size={20} />
-      </div>
-      <div style={{ background: 'rgba(0,0,0,0.2)', height: '10px', borderRadius: '5px' }}>
-        <div style={{ width: `${xp}%`, background: '#fff', height: '100%', borderRadius: '5px' }}></div>
-      </div>
-    </div>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '20px' }}>
-      {[100, 500, 1000, 5000].map(amt => (
-        <div key={amt} className="card" onClick={() => setDiamonds(diamonds + amt)} style={{ cursor: 'pointer', textAlign: 'center' }}>
-          <Gem size={32} color="var(--secondary)" />
-          <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{amt}</div>
-        </div>
-      ))}
-    </div>
-    <RewardAd onReward={() => setDiamonds(prev => prev + 50)} />
+const CameraModule = () => (
+  <div className="card camera-placeholder">
+    <VideoOff size={60} color="var(--error)" />
+    <p>La cámara se activará en la versión APK</p>
   </div>
 );
 
-const CameraModule = () => {
-  const videoRef = useRef(null);
-  const [stream, setStream] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    let currentStream = null;
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-      .then(s => {
-        currentStream = s;
-        setStream(s);
-        if (videoRef.current) videoRef.current.srcObject = s;
-      })
-      .catch(err => {
-        console.error("Error accessing camera:", err);
-        setError("No se pudo activar la cámara. Revisa los permisos.");
-      });
-
-    return () => {
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-
-  return (
-    <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative', minHeight: '300px' }}>
-      {error ? (
-        <div style={{ textAlign: 'center', padding: '20px' }}>
-          <VideoOff size={60} color="var(--error)" style={{ marginBottom: '15px' }} />
-          <p style={{ fontSize: '14px', opacity: 0.8 }}>{error}</p>
-          <button className="secondary-btn" onClick={() => window.location.reload()} style={{ marginTop: '15px' }}>Reintentar</button>
-        </div>
-      ) : stream ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '15px' }}
-        />
-      ) : (
-        <div style={{ textAlign: 'center' }}>
-          <div className="avatar-pulse" style={{ margin: '0 auto 20px' }}><Camera size={40} /></div>
-          <p>Iniciando lento...</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const ChatArea = ({ friend, onBack, isGroup, onJoinCall, userDiamonds, setUserDiamonds }) => (
-  <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+const ChatArea = ({ friend, onBack, onJoinCall }) => (
+  <div className="chat-container">
     <header>
-      <button onClick={onBack} className="icon-btn secondary-btn"><ChevronLeft /></button>
-      <div style={{ flex: 1, marginLeft: '12px' }}>{friend.name}</div>
-      {isGroup && <button className="primary-btn" onClick={onJoinCall}>SALA</button>}
+      <button onClick={onBack} className="icon-btn"><ChevronLeft /></button>
+      <div style={{ flex: 1 }}>{friend.name}</div>
+      <button className="primary-btn" onClick={onJoinCall}>SALA</button>
     </header>
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>Chatea con {friend.name}</div>
-    <div className="chat-input-area" style={{ margin: '16px' }}>
+    <div className="chat-messages">Chatea con {friend.name}</div>
+    <div className="chat-input-area">
       <input placeholder="Mensaje..." />
-      <button className="primary-btn icon-btn"><Send /></button>
+      <button className="primary-btn"><Send /></button>
     </div>
   </div>
 );
 
 const NavButton = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} style={{ flexDirection: 'column', background: 'transparent', color: active ? 'var(--secondary)' : 'rgba(255,255,255,0.4)', padding: '10px', minHeight: 'auto', gap: '4px', width: '20%' }}>
+  <button onClick={onClick} className={`nav-btn ${active ? 'active' : ''}`}>
     <motion.div animate={active ? { y: -5, scale: 1.2 } : {}}>{icon}</motion.div>
-    <span style={{ fontSize: '10px' }}>{label}</span>
+    <span>{label}</span>
   </button>
+);
+
+const GroupMeetingUI = ({ onExit }) => (
+  <div className="meeting-overlay">
+    <header>
+      <h2>Sala de Grupo</h2>
+      <button onClick={onExit} className="icon-btn"><X /></button>
+    </header>
+    <div className="meeting-grid">
+      <div className="card meeting-slot">Tú</div>
+      <div className="card meeting-slot">Ana</div>
+    </div>
+    <div className="meeting-controls">
+      <button className="primary-btn exit-call-btn" onClick={onExit}>SALIR</button>
+    </div>
+  </div>
+);
+
+const AdminPanel = () => (
+  <div className="fade-in">
+    <h3>Panel de Administración</h3>
+    <div className="card admin-card">
+      <p>Usuarios Registrados: 1</p>
+      <p>Estado de Firebase: <span style={{color:'#00ff00'}}>Conectado</span></p>
+      <button className="primary-btn" style={{width:'100%', marginTop:'10px'}}>Gestionar Usuarios</button>
+    </div>
+  </div>
 );
 
 export default App;
