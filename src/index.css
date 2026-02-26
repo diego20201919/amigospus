@@ -1,188 +1,136 @@
-/* --- VARIABLES Y RESET --- */
+/* --- VARIABLES --- */
 :root {
   --primary: #f39c12;
   --primary-light: #f1c40f;
   --secondary: #e74c3c;
   --background: #121212;
   --surface: #1e1e1e;
-  --surface-opaque: #252525;
   --on-background: #ffffff;
-  --border-radius: 15px;
 }
 
 body {
   background: var(--background);
   color: var(--on-background);
   font-family: 'Outfit', sans-serif;
+  margin: 0;
 }
 
-/* --- HEADER IG STYLE --- */
-.main-header {
+.container.center {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: 15px 20px;
-  background: var(--background);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  border-bottom: 1px solid #333;
+  height: 100vh;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
+/* --- LOGIN BOX STYLE --- */
+.login-box {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 30px;
+  width: 90%;
+  max-width: 400px;
 }
 
-.notif-btn {
-  position: relative;
-  background: transparent;
-  border: none;
-  color: white;
-}
-
-.notif-dot {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 8px;
-  height: 8px;
-  background: var(--secondary);
-  border-radius: 50%;
-  border: 2px solid var(--background);
-}
-
-/* --- PROFILE IG STYLE --- */
-.profile-header-ig {
-  padding: 20px;
-  border-radius: 0;
-  background: transparent;
-}
-
-.profile-top {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-}
-
-.avatar-main {
+.login-logo-circle {
   width: 80px;
   height: 80px;
-  border-radius: 50%;
-  padding: 3px;
-  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
-}
-
-.avatar-main img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--background);
-}
-
-.profile-stats {
-  display: flex;
-  gap: 20px;
-  flex: 1;
-  justify-content: space-around;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-item b { font-size: 18px; }
-.stat-item span { font-size: 12px; opacity: 0.6; }
-
-.user-name-ig { font-weight: 900; font-size: 16px; margin-bottom: 5px; }
-.live-btn-ig {
-  width: 100%;
-  margin-top: 15px;
-  padding: 10px;
-  border-radius: 10px;
   background: var(--primary);
-  border: none;
-  color: white;
-  font-weight: bold;
-}
-
-/* --- FEED POSTS IG STYLE --- */
-.ig-post {
-  margin-bottom: 20px;
-  background: var(--background);
-}
-
-.post-header {
+  border-radius: 25px;
+  margin: 0 auto 20px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 15px;
+  justify-content: center;
+  box-shadow: 0 10px 20px rgba(243, 156, 18, 0.3);
 }
 
-.post-user {
+.login-input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+}
+
+.text-link-btn {
+  background: transparent;
+  border: none;
+  color: var(--primary-light);
+  margin-top: 15px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.separator {
+  margin: 20px 0;
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: bold;
-  font-size: 14px;
+  opacity: 0.3;
 }
 
-.avatar-tiny {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #444;
-  overflow: hidden;
+.separator::before, .separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: white;
 }
 
-.post-image img {
-  width: 100%;
-  max-height: 500px;
-  object-fit: cover;
+.legal-text-login {
+  margin-top: 30px;
+  font-size: 11px;
+  opacity: 0.4;
 }
 
-.post-actions {
+.legal-text-login a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* --- ESTILOS IG Y HEADER --- */
+.main-header {
   display: flex;
   justify-content: space-between;
-  padding: 12px 15px;
-}
-
-.left-actions { display: flex; gap: 15px; }
-.post-info { padding: 0 15px 15px; }
-.likes-count { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
-.post-caption { font-size: 14px; }
-.post-time { font-size: 10px; opacity: 0.4; margin-top: 5px; }
-
-/* --- NOTIF PANEL --- */
-.notif-panel {
-  position: fixed;
-  inset: 0;
-  background: var(--background);
-  z-index: 2000;
-  display: flex;
-  flex-direction: column;
-}
-
-.notif-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px;
+  padding: 15px 20px;
   border-bottom: 1px solid #333;
 }
 
-.notif-item {
+.diamond-badge-header {
+  background: rgba(241, 196, 15, 0.1);
+  border: 1px solid #f1c40f;
+  padding: 5px 12px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 15px;
-  border-bottom: 1px solid #222;
+  gap: 5px;
+  font-weight: bold;
 }
 
-.notif-icon { font-size: 24px; }
-.notif-text p { font-size: 14px; margin: 0; }
-.notif-text span { font-size: 11px; opacity: 0.4; }
+.nav-item-ig {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+}
+
+.nav-item-ig.active {
+  color: var(--primary);
+}
+
+.nav-item-ig span { font-size: 10px; }
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #000;
+  display: flex;
+  border-top: 1px solid #333;
+}

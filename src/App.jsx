@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db, storage } from './lib/firebase';
-import { onAuthStateChanged, updateProfile } from "firebase/auth";
+import { onAuthStateChanged, updateProfile, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, setDoc, getDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import {
   Camera, Users, UserPlus, MessageSquare, ChevronLeft, X, Send, Gem, Sparkles, Trophy,
   Gamepad2, PlayCircle, Lock, Star, VideoOff, Settings, LogOut, UserCircle, Edit2,
@@ -11,15 +11,36 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// --- CATÁLOGO DE ANIMACIONES ---
+const ANIMATIONS_CATALOG = [
+  { id: 'rose', icon: '🌹', name: 'Rosa', price: 10, xp: 5 },
+  { id: 'fire', icon: '🔥', name: 'Fuego', price: 50, xp: 25 },
+  { id: 'heart_bomb', icon: '💣❤️', name: 'Bomba Amor', price: 200, xp: 100 },
+  { id: 'crown', icon: '👑', name: 'Corona', price: 500, xp: 250 },
+  { id: 'rocket', icon: '🚀', name: 'Cohete', price: 1000, xp: 500 }
+];
+
+const FlyingAnimation = ({ icon, onComplete }) => (
+  <motion.div
+    initial={{ scale: 0, y: 0, opacity: 1 }}
+    animate={{ scale: [1, 3, 2], y: -400, opacity: [1, 1, 0] }}
+    transition={{ duration: 2 }}
+    onAnimationComplete={onComplete}
+    style={{ position: 'absolute', fontSize: '60px', zIndex: 9999, pointerEvents: 'none' }}
+  >
+    {icon}
+  </motion.div>
+);
+
 const App = () => {
   const [user, setUser] = useState(null);
   const [userData, setUserData] = useState({ level: 1, xp: 0, diamonds: 2500, photoURL: '', name: 'Usuario' });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('feed');
   const [inGroupCall, setInGroupCall] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [showNotifList, setShowNotifNotifList] = useState(false);
+  const [showNotifList, setShowNotifList] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -30,24 +51,44 @@ const App = () => {
         if (docSnap.exists()) {
           setUserData(docSnap.data());
         } else {
-          const initialData = { level: 1, xp: 0, diamonds: 2500, name: currentUser.displayName || "Nuevo Amigo", photoURL: '' };
+          const initialData = { level: 1, xp: 0, diamonds: 2500, name: currentUser.displayName || "Amigo Puz", photoURL: currentUser.photoURL || '' };
           await setDoc(userDoc, initialData);
           setUserData(initialData);
         }
-
-        // Listener de Notificaciones Reales
-        const notifQ = query(collection(db, "profiles", currentUser.uid, "notifications"), orderBy("createdAt", "desc"), limit(10));
-        onSnapshot(notifQ, (snap) => {
+        // Listener Notificaciones
+        onSnapshot(query(collection(db, "profiles", currentUser.uid, "notifications"), orderBy("createdAt", "desc"), limit(10)), (snap) => {
           setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
-
       } else { setUser(null); }
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  if (loading) return <div className="container center"><div className="avatar-pulse">Conectando...</div></div>;
+  const handleReceiveGift = async (animXp) => {
+    const userDoc = doc(db, "profiles", user.uid);
+    let newXp = userData.xp + animXp;
+    let newLevel = userData.level;
+    if (newXp >= userData.level * 1000) { newLevel += 1; newXp = 0; }
+    await updateDoc(userDoc, { xp: newXp, level: newLevel });
+    setUserData(prev => ({ ...prev, xp: newXp, level: newLevel }));
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const storageRef = ref(storage, `profiles/${user.uid}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      await updateDoc(doc(db, "profiles", user.uid), { photoURL: url });
+      setUserData(prev => ({ ...prev, photoURL: url }));
+    } catch (err) { console.error(err); }
+    finally { setUploading(false); }
+  };
+
+  if (loading) return <div className="container center"><div className="avatar-pulse">AMIGOS PUZ...</div></div>;
   if (!user) return <Login />;
 
   return (
@@ -55,11 +96,8 @@ const App = () => {
       <header className="main-header">
         <div className="app-title">AMIGOS PUZ</div>
         <div className="header-actions">
-          <div className="diamond-badge-header">
-            <Gem size={14} color="#f1c40f" />
-            <span>{userData.diamonds}</span>
-          </div>
-          <button className="notif-btn" onClick={() => setShowNotifNotifList(!showNotifList)}>
+          <div className="diamond-badge-header"><Gem size={14} color="#f1c40f" /><span>{userData.diamonds}</span></div>
+          <button className="notif-btn" onClick={() => setShowNotifList(!showNotifList)}>
             <Bell size={20} />
             {notifications.length > 0 && <span className="notif-dot"></span>}
           </button>
@@ -69,13 +107,13 @@ const App = () => {
       <main className="content-area">
         <AnimatePresence mode="wait">
           {showNotifList ? (
-            <NotificationPanel key="notifs" list={notifications} onBack={() => setShowNotifNotifList(false)} />
+            <NotificationPanel key="notifs" list={notifications} onBack={() => setShowNotifList(false)} />
           ) : inGroupCall ? (
-            <GroupMeetingUI onExit={() => setInGroupCall(false)} userData={userData} />
+            <GroupMeetingUI onExit={() => setInGroupCall(false)} userData={userData} onReceiveGift={handleReceiveGift} />
           ) : (
             <motion.div key={activeTab} initial={{opacity:0}} animate={{opacity:1}} style={{ height: '100%' }}>
-              {activeTab === 'feed' && <FeedModule user={user} userData={userData} onEnterRoom={() => setInGroupCall(true)} />}
-              {activeTab === 'store' && <StoreModule userData={userData} />}
+              {activeTab === 'feed' && <FeedModule user={user} userData={userData} onEnterRoom={() => setInGroupCall(true)} onUpload={handlePhotoUpload} uploading={uploading} />}
+              {activeTab === 'store' && <StoreModule userData={userData} setUserData={setUserData} />}
               {activeTab === 'camera' && <CameraModule />}
             </motion.div>
           )}
@@ -93,128 +131,155 @@ const App = () => {
   );
 };
 
-// --- MURO ESTILO INSTAGRAM ---
-const FeedModule = ({ user, userData, onEnterRoom }) => {
-  const posts = [
-    { id: 1, user: 'Elena_Puz', photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', content: '¡Feliz día a todos en AMIGOS PUZ! 🌟', likes: 124, img: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=500' },
-    { id: 2, user: 'Carlos_Dev', photo: '', content: 'Buscando amigos para sala de música 🎸', likes: 89, img: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500' }
-  ];
-
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isReg, setIsReg] = useState(false);
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    try {
+      if (isReg) await createUserWithEmailAndPassword(auth, email, password);
+      else await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) { alert(err.message); }
+  };
   return (
-    <div className="fade-in">
-      <div className="card profile-header-ig">
-        <div className="profile-top">
-          <div className="avatar-main">
-            {userData.photoURL ? <img src={userData.photoURL} alt="p" /> : <UserCircle size={60} />}
-          </div>
-          <div className="profile-stats">
-            <div className="stat-item"><b>{userData.level}</b><span>Nivel</span></div>
-            <div className="stat-item"><b>1.2k</b><span>Seguidores</span></div>
-            <div className="stat-item"><b>450</b><span>Siguiendo</span></div>
-          </div>
-        </div>
-        <div className="profile-bio">
-          <div className="user-name-ig">{userData.name}</div>
-          <p>Disfrutando de la mejor comunidad 🚀</p>
-        </div>
-        <button onClick={onEnterRoom} className="live-btn-ig">TRANSMITIR EN VIVO 🎙️</button>
-      </div>
-
-      <div className="ig-feed">
-        {posts.map(post => (
-          <div key={post.id} className="ig-post">
-            <div className="post-header">
-              <div className="post-user">
-                <div className="avatar-tiny">{post.photo ? <img src={post.photo} /> : post.user[0]}</div>
-                <span>{post.user}</span>
-              </div>
-              <MoreHorizontal size={18} />
-            </div>
-            <div className="post-image">
-              <img src={post.img} alt="post" />
-            </div>
-            <div className="post-actions">
-              <div className="left-actions">
-                <Heart size={24} className="action-icon" />
-                <MessageCircle size={24} className="action-icon" />
-                <Share2 size={24} className="action-icon" />
-              </div>
-              <Bookmark size={24} />
-            </div>
-            <div className="post-info">
-              <div className="likes-count">{post.likes} Me gusta</div>
-              <div className="post-caption"><b>{post.user}</b> {post.content}</div>
-              <div className="post-time">Hace 2 horas</div>
-            </div>
-          </div>
-        ))}
+    <div className="container center" style={{background: 'linear-gradient(135deg, #4d1d12, #6b3b00)'}}>
+      <div className="card login-box" style={{textAlign: 'center', padding: '40px 30px'}}>
+        <div className="login-logo-circle"><Sparkles color="white" size={40} /></div>
+        <h1 style={{fontSize: '28px', fontWeight: '900', marginBottom: '30px'}}>AMIGOS PUZ</h1>
+        <form onSubmit={handleAuth} style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+          <input type="email" placeholder="Email" className="login-input" onChange={e => setEmail(e.target.value)} required />
+          <input type="password" placeholder="Pass" className="login-input" onChange={e => setPassword(e.target.value)} required />
+          <button type="submit" className="primary-btn" style={{height: '55px', borderRadius: '15px'}}>{isReg ? 'REGISTRARSE' : 'ENTRAR'}</button>
+        </form>
+        <button onClick={() => setIsReg(!isReg)} className="text-link-btn">{isReg ? 'Ya tengo cuenta' : 'Crear cuenta gratis'}</button>
+        <div className="separator"><span>o</span></div>
+        <button className="secondary-btn" onClick={() => signInAnonymously(auth)} style={{width: '100%', height: '50px', borderRadius: '15px'}}>ENTRAR COMO INVITADO</button>
       </div>
     </div>
   );
 };
 
-// --- PANEL DE NOTIFICACIONES ---
-const NotificationPanel = ({ list, onBack }) => (
-  <motion.div initial={{ x: 300 }} animate={{ x: 0 }} exit={{ x: 300 }} className="notif-panel">
-    <div className="notif-header">
-      <button onClick={onBack} className="back-btn-small"><ChevronLeft /></button>
-      <h3>Notificaciones</h3>
-      <div style={{width:24}}></div>
-    </div>
-    <div className="notif-list">
-      {list.length === 0 ? (
-        <div className="empty-notif">
-          <Bell size={40} opacity={0.2} />
-          <p>No tienes avisos nuevos</p>
-        </div>
-      ) : (
-        list.map(n => (
-          <div key={n.id} className="notif-item">
-            <div className="notif-icon">{n.type === 'gift' ? '🎁' : '⭐'}</div>
-            <div className="notif-text">
-              <p>{n.message}</p>
-              <span>{new Date(n.createdAt?.toDate()).toLocaleTimeString()}</span>
-            </div>
+const FeedModule = ({ user, userData, onEnterRoom, onUpload, uploading }) => {
+  const [topUsers, setTopUsers] = useState([]);
+  useEffect(() => {
+    onSnapshot(query(collection(db, "profiles"), orderBy("level", "desc"), limit(5)), (snap) => {
+      setTopUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+  }, []);
+
+  return (
+    <div className="fade-in">
+      <div className="card profile-header-ig">
+        <div className="profile-top">
+          <div className="avatar-wrapper" style={{width:80, height:80}}>
+            {userData.photoURL ? <img src={userData.photoURL} className="avatar-img" /> : <div className="avatar-placeholder" style={{fontSize:30}}>{userData.name[0]}</div>}
+            <label className="edit-overlay"><input type="file" onChange={onUpload} hidden accept="image/*" /><Camera size={12} color="white" /></label>
+            {uploading && <div className="mini-loader"></div>}
           </div>
-        ))
-      )}
+          <div className="profile-stats">
+            <div className="stat-item"><b>{userData.level}</b><span>Nivel</span></div>
+            <div className="stat-item"><b>1.2k</b><span>Fans</span></div>
+            <div className="stat-item"><b>450</b><span>Siguiendo</span></div>
+          </div>
+        </div>
+        <div className="profile-bio"><div className="user-name-ig">{userData.name}</div><p>¡Disfrutando de AMIGOS PUZ! 🚀</p></div>
+        <button onClick={onEnterRoom} className="live-btn-ig">TRANSMITIR EN VIVO 🎙️</button>
+      </div>
+
+      <div className="ranking-section" style={{padding:'0 15px'}}>
+        <div className="section-title" style={{marginBottom:10}}><Medal size={16} color="var(--primary)"/> TOP RANKING REAL</div>
+        <div className="card ranking-card">
+          {topUsers.map((u, i) => (
+            <div key={u.id} className="ranking-item">
+              <span style={{fontWeight:'bold', color: i===0 ? 'gold' : 'white'}}>#{i+1}</span>
+              <div className="avatar-mini">{u.photoURL ? <img src={u.photoURL} /> : u.name[0]}</div>
+              <span style={{flex:1, fontSize:13}}>{u.name}</span>
+              <span className="rank-lvl">LVL {u.level}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
-  </motion.div>
-);
+  );
+};
 
-// --- LOS DEMÁS COMPONENTES (Store, Meeting, etc) SIGUEN IGUAL PARA ESTABILIDAD ---
-const StoreModule = ({ userData }) => (
-  <div className="card"><h3>Tienda VIP</h3><p>Diamantes: {userData.diamonds}</p></div>
-);
-
-const GroupMeetingUI = ({ onExit, userData }) => (
-  <div className="meeting-overlay">
-    <header className="meeting-header"><button onClick={onExit}><ArrowLeft/></button><span>SALA 8 ASIENTOS</span></header>
-    <div className="meeting-grid-8">
-      {[...Array(8)].map((_, i) => (
-        <div key={i} className="meeting-seat">
-          <div className="seat-avatar-small">{i === 0 ? (userData.photoURL ? <img src={userData.photoURL} /> : 'Tú') : <UserPlus size={16} opacity={0.2}/>}</div>
+const StoreModule = ({ userData, setUserData }) => (
+  <div className="fade-in" style={{padding:15}}>
+    <div className="card reward-hero" style={{border:'2px solid var(--primary)', marginBottom:20}}>
+      <div className="shield-container"><div className="shield-inner"><Gamepad2 size={40}/><div style={{fontSize:10, fontWeight:900}}>GANA PLAY</div></div></div>
+      <h2>Diamantes: {userData.diamonds}</h2>
+      <button className="primary-btn reward-btn" onClick={async () => {
+        const newD = userData.diamonds + 100;
+        await updateDoc(doc(db, "profiles", auth.currentUser.uid), { diamonds: newD });
+        setUserData(prev => ({...prev, diamonds: newD}));
+      }}><PlayCircle size={24}/> VER VIDEO +100 💎</button>
+    </div>
+    <h3>Catálogo de Animaciones</h3>
+    <div className="pack-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:15}}>
+      {ANIMATIONS_CATALOG.map(a => (
+        <div key={a.id} className="card pack-card" style={{textAlign:'center'}}>
+          <div style={{fontSize:40}}>{a.icon}</div>
+          <div style={{fontWeight:'bold', fontSize:12}}>{a.name}</div>
+          <div style={{color:'var(--primary)', fontWeight:'bold'}}>{a.price} 💎</div>
         </div>
       ))}
     </div>
   </div>
 );
 
-const NavButton = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`nav-item-ig ${active ? 'active' : ''}`}>
-    {icon}
-    <span>{label}</span>
-  </button>
+const GroupMeetingUI = ({ onExit, userData, onReceiveGift }) => {
+  const [flying, setFlying] = useState([]);
+  const [selSeat, setSelSeat] = useState(null);
+  const sendGift = (a) => {
+    setFlying([...flying, { id: Date.now(), icon: a.icon, seat: selSeat }]);
+    if (selSeat === 0) onReceiveGift(a.xp);
+    setSelSeat(null);
+  };
+  return (
+    <div className="meeting-overlay">
+      <header className="meeting-header"><button onClick={onExit} className="back-btn-small"><ArrowLeft/></button><span>SALA VIP</span></header>
+      <div className="meeting-grid-8" style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:20, padding:20}}>
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="meeting-seat" onClick={() => i!==0 && setSelSeat(i)} style={{textAlign:'center'}}>
+            <div className="seat-avatar" style={{width:70, height:70, borderRadius:'50%', background: i===0?'var(--primary)':'#333', margin:'0 auto', position:'relative', display:'flex', alignItems:'center', justifyContent:'center'}}>
+              {i===0 ? (userData.photoURL ? <img src={userData.photoURL} style={{width:'100%', height:'100%', borderRadius:'50%'}} /> : userData.name[0]) : <UserPlus opacity={0.2}/>}
+              {flying.filter(f => f.seat === i).map(f => <FlyingAnimation key={f.id} icon={f.icon} onComplete={() => setFlying(prev => prev.filter(p => p.id !== f.id))} />)}
+            </div>
+            <span style={{fontSize:10}}>{i===0?'Tú':'Asiento'}</span>
+          </div>
+        ))}
+      </div>
+      {selSeat && (
+        <div className="gift-picker" style={{position:'absolute', bottom:0, background:'#1a1a1a', width:'100%', padding:20, borderRadius:'20px 20px 0 0'}}>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
+            {ANIMATIONS_CATALOG.map(a => <button key={a.id} onClick={() => sendGift(a)} style={{background:'#333', border:'none', color:'white', padding:10, borderRadius:10}}>
+              <div>{a.icon}</div><div style={{fontSize:10}}>{a.price} 💎</div>
+            </button>)}
+          </div>
+          <button onClick={() => setSelSeat(null)} className="secondary-btn" style={{width:'100%', marginTop:10}}>Cerrar</button>
+        </div>
+      )}
+      <button className="primary-btn" onClick={onExit} style={{position:'absolute', bottom:40, left:20, right:20, background:'#e74c3c'}}>SALIR</button>
+    </div>
+  );
+};
+
+const NotificationPanel = ({ list, onBack }) => (
+  <motion.div initial={{ x: 300 }} animate={{ x: 0 }} exit={{ x: 300 }} className="notif-panel">
+    <div className="notif-header"><button onClick={onBack} className="back-btn-small"><ChevronLeft/></button><h3>Avisos</h3><div style={{width:24}}></div></div>
+    <div className="notif-list" style={{padding:15}}>
+      {list.length === 0 ? <div style={{textAlign:'center', opacity:0.3, marginTop:50}}><Bell size={40}/><p>Nada nuevo</p></div> :
+        list.map(n => <div key={n.id} style={{padding:15, borderBottom:'1px solid #333', display:'flex', gap:10}}><span>🎁</span><p>{n.message}</p></div>)
+      }
+    </div>
+  </motion.div>
 );
 
-const CameraModule = () => (<div className="card ig-post"><h3>Cámara Instagram</h3></div>);
-const Login = () => (
-  <div className="container center">
-    <div className="card login-box">
-      <h1>AMIGOS PUZ</h1>
-      <button className="primary-btn" onClick={() => auth.signInAnonymously()}>ENTRAR COMO INVITADO</button>
-    </div>
-  </div>
+const NavButton = ({ active, onClick, icon, label }) => (
+  <button onClick={onClick} className={`nav-item-ig ${active ? 'active' : ''}`}>{icon}<span>{label}</span></button>
 );
+
+const CameraModule = () => (<div className="card center" style={{height:300, background:'#000', margin:20}}><h3>Cámara Lista</h3></div>);
 
 export default App;
