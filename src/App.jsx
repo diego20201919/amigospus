@@ -89,7 +89,6 @@ const App = () => {
         <div className="header-actions" style={{display:'flex', alignItems:'center', gap:'12px'}}>
           <div className="diamond-badge-header"><Gem size={14} color="#f1c40f" /><span>{userData.diamonds}</span></div>
 
-          {/* GRUPO DE BOTONES SUPERIORES */}
           <div style={{display:'flex', gap:'8px', background:'rgba(255,255,255,0.05)', padding:'4px', borderRadius:'12px'}}>
             <button className="notif-btn" onClick={() => setShowNotifList(!showNotifList)} style={{minHeight:'auto', padding:'8px'}}>
               <Bell size={20} />
@@ -118,7 +117,6 @@ const App = () => {
         </AnimatePresence>
       </main>
 
-      {/* MODAL DE CONFIGURACIÓN MULTI-OPCIÓN */}
       <AnimatePresence>
         {showSettings && (
           <div className="modal-overlay">
@@ -129,20 +127,14 @@ const App = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{fontSize:'10px', opacity:0.5, fontWeight:'bold', marginLeft:'5px'}}>CUENTA</div>
-                <button className="secondary-btn" style={{justifyContent: 'flex-start', height:'50px'}}><Edit2 size={18} style={{marginRight:10}}/> Editar Perfil y Foto</button>
-                <button className="secondary-btn" style={{justifyContent: 'flex-start', height:'50px'}}><Shield size={18} style={{marginRight:10}}/> Privacidad y Seguridad</button>
-
-                <div style={{fontSize:'10px', opacity:0.5, fontWeight:'bold', marginLeft:'5px', marginTop:15}}>APLICACIÓN</div>
-                <button className="secondary-btn" style={{justifyContent: 'flex-start', height:'50px'}}><Globe size={18} style={{marginRight:10}}/> Idioma: Español</button>
-                <button className="secondary-btn" style={{justifyContent: 'flex-start', height:'50px'}}><HelpCircle size={18} style={{marginRight:10}}/> Centro de Ayuda</button>
-
+                <button className="secondary-btn" style={{justifyContent: 'flex-start', height:'50px'}}><Edit2 size={18} style={{marginRight:10}}/> Editar Perfil</button>
+                <button className="secondary-btn" style={{justifyContent: 'flex-start', height:'50px'}}><Shield size={18} style={{marginRight:10}}/> Seguridad</button>
+                <button className="secondary-btn" style={{justifyContent: 'flex-start', height:'50px'}}><Globe size={18} style={{marginRight:10}}/> Idioma</button>
                 <div style={{height:'1px', background:'rgba(255,255,255,0.05)', margin:'15px 0'}}></div>
-                <button className="secondary-btn" style={{justifyContent: 'center', color: 'var(--error)', height:'55px', border:'1px solid var(--error)', background:'rgba(231, 76, 60, 0.05)'}} onClick={() => signOut(auth)}>
+                <button className="secondary-btn" style={{justifyContent: 'center', color: 'var(--error)', height:'55px', border:'1px solid var(--error)'}} onClick={() => signOut(auth)}>
                   <LogOut size={18} style={{marginRight:10}}/> CERRAR SESIÓN
                 </button>
               </div>
-              <div style={{marginTop:20, fontSize:9, opacity:0.3}}>AMIGOS PUZ v1.0.4 - 2024</div>
             </motion.div>
           </div>
         )}
@@ -159,6 +151,63 @@ const App = () => {
   );
 };
 
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isReg, setIsReg] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    try {
+      if (isReg) await createUserWithEmailAndPassword(auth, email, password);
+      else await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      console.error(err.code);
+      switch (err.code) {
+        case 'auth/email-already-in-use':
+          setErrorMsg('Este correo ya está registrado. Intenta iniciar sesión.');
+          break;
+        case 'auth/weak-password':
+          setErrorMsg('La contraseña es muy corta (mínimo 6 caracteres).');
+          break;
+        case 'auth/invalid-email':
+          setErrorMsg('El formato del correo no es válido.');
+          break;
+        case 'auth/user-not-found':
+          setErrorMsg('No existe ninguna cuenta con este correo.');
+          break;
+        case 'auth/wrong-password':
+          setErrorMsg('La contraseña es incorrecta.');
+          break;
+        default:
+          setErrorMsg('Error: ' + err.message);
+      }
+    }
+  };
+
+  return (
+    <div className="container center" style={{background: 'linear-gradient(135deg, #4d1d12, #6b3b00)'}}>
+      <div className="card login-box" style={{textAlign: 'center', padding: '40px 30px'}}>
+        <div className="login-logo-circle"><Sparkles color="white" size={40} /></div>
+        <h1 style={{fontSize: '28px', fontWeight: '900', marginBottom: '30px'}}>AMIGOS PUZ</h1>
+        <form onSubmit={handleAuth} style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+          <input type="email" placeholder="Email" className="login-input" onChange={e => setEmail(e.target.value)} required />
+          <input type="password" placeholder="Pass" className="login-input" onChange={e => setPassword(e.target.value)} required />
+          {errorMsg && <div style={{color: 'var(--error)', fontSize: '13px', background: 'rgba(255,75,43,0.1)', padding: '10px', borderRadius: '8px'}}>{errorMsg}</div>}
+          <button type="submit" className="primary-btn" style={{height: '55px', borderRadius: '15px'}}>{isReg ? 'REGISTRARSE' : 'ENTRAR'}</button>
+        </form>
+        <button onClick={() => { setIsReg(!isReg); setErrorMsg(''); }} className="text-link-btn">
+          {isReg ? 'Ya tengo cuenta. Entrar' : '¿Eres nuevo? Crear cuenta gratis'}
+        </button>
+        <div className="separator"><span>o</span></div>
+        <button className="secondary-btn" onClick={() => signInAnonymously(auth)} style={{width: '100%', height: '50px', borderRadius: '15px'}}>ENTRAR COMO INVITADO</button>
+      </div>
+    </div>
+  );
+};
+
 const FeedModule = ({ user, userData, onEnterRoom }) => {
   const [topUsers, setTopUsers] = useState([]);
   useEffect(() => {
@@ -169,7 +218,7 @@ const FeedModule = ({ user, userData, onEnterRoom }) => {
 
   return (
     <div className="fade-in">
-      <div className="card profile-header-ig" style={{borderBottom:'1px solid rgba(255,255,255,0.05)', borderRadius:0}}>
+      <div className="card profile-header-ig">
         <div className="profile-top">
           <div className="avatar-wrapper" style={{width:80, height:80}}>
             {userData.photoURL ? <img src={userData.photoURL} className="avatar-img" /> : <div className="avatar-placeholder" style={{fontSize:30}}>{userData.name[0]}</div>}
@@ -181,18 +230,18 @@ const FeedModule = ({ user, userData, onEnterRoom }) => {
           </div>
         </div>
         <div className="profile-bio"><div className="user-name-ig">{userData.name}</div><p>¡Disfrutando de AMIGOS PUZ! 🚀</p></div>
-        <button onClick={onEnterRoom} className="live-btn-ig" style={{background:'linear-gradient(45deg, var(--primary), #e67e22)'}}>TRANSMITIR EN VIVO 🎙️</button>
+        <button onClick={onEnterRoom} className="live-btn-ig" style={{background:'linear-gradient(45deg, var(--primary), #e67e22)'}}>MI SALA EN VIVO 🎙️</button>
       </div>
 
       <div className="ranking-section" style={{padding:'15px'}}>
-        <div className="section-title" style={{marginBottom:15, display:'flex', alignItems:'center', gap:10}}><Medal size={18} color="var(--primary)"/> <b>TOP RANKING REAL</b></div>
-        <div className="card ranking-card" style={{padding:0, overflow:'hidden'}}>
+        <div className="section-title" style={{marginBottom:15}}><Medal size={18} color="var(--primary)"/> <b>RANKING REAL</b></div>
+        <div className="card ranking-card">
           {topUsers.map((u, i) => (
-            <div key={u.id} className="ranking-item" style={{padding:'12px 15px', background: i===0 ? 'rgba(243, 156, 18, 0.05)' : 'transparent', borderBottom:'1px solid rgba(255,255,255,0.02)'}}>
+            <div key={u.id} className="ranking-item">
               <span style={{fontWeight:'bold', color: i===0 ? 'gold' : 'white', width:25}}>#{i+1}</span>
-              <div className="avatar-mini" style={{border: i===0 ? '1px solid gold' : 'none'}}>{u.photoURL ? <img src={u.photoURL} /> : u.name[0]}</div>
-              <span style={{flex:1, fontSize:13, fontWeight: i===0?'bold':'normal'}}>{u.name}</span>
-              <span className="rank-lvl" style={{background: i===0?'gold':'var(--primary)', color: i===0?'black':'white'}}>LVL {u.level}</span>
+              <div className="avatar-mini">{u.photoURL ? <img src={u.photoURL} /> : u.name[0]}</div>
+              <span style={{flex:1, fontSize:13}}>{u.name}</span>
+              <span className="rank-lvl">LVL {u.level}</span>
             </div>
           ))}
         </div>
@@ -201,22 +250,21 @@ const FeedModule = ({ user, userData, onEnterRoom }) => {
   );
 };
 
-// ... (RoomsModule, StoreModule, GroupMeetingUI y demás componentes auxiliares se mantienen iguales para estabilidad)
-
 const RoomsModule = ({ onEnterRoom }) => {
   const activeRooms = [
-    { id: 1, name: "Fiesta de Amigos 🎉", users: 5, tag: "Social" },
-    { id: 2, name: "Karaoke Puz 🎤", users: 8, tag: "Música" },
-    { id: 3, name: "Charla Chill ☕", users: 3, tag: "Relajación" },
-    { id: 4, name: "Gamers Unidos 🎮", users: 6, tag: "Juegos" }
+    { id: 1, name: "Fiesta 🎉", users: 5 },
+    { id: 2, name: "Karaoke 🎤", users: 8 },
+    { id: 3, name: "Charla ☕", users: 3 }
   ];
-  const handleQuickJoin = () => onEnterRoom(activeRooms[Math.floor(Math.random()*activeRooms.length)].name);
   return (
     <div className="fade-in" style={{padding: '15px'}}>
-      <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px'}}><Radio color="var(--primary)" size={24}/><h3 style={{fontSize: '20px', fontWeight: '900'}}>SALAS EN VIVO</h3></div>
-      <motion.button whileTap={{ scale: 0.95 }} onClick={handleQuickJoin} className="primary-btn" style={{ width: '100%', height: '70px', borderRadius: '20px', marginBottom: '25px', background: 'linear-gradient(45deg, #f39c12, #e74c3c)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px'}}><Dices size={32} color="white" /><div style={{textAlign: 'left'}}><div style={{fontWeight: '900', fontSize: '18px'}}>¡SORPRÉNDEME!</div><div style={{fontSize: '11px', opacity: 0.8}}>Entra a una sala al azar ahora</div></div></motion.button>
-      <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>{activeRooms.map(room => (
-          <motion.div key={room.id} whileTap={{scale: 0.98}} onClick={() => onEnterRoom(room.name)} className="card" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.03)'}}><div><div style={{fontWeight: 'bold', fontSize: '16px', marginBottom: '4px'}}>{room.name}</div><div style={{display: 'flex', gap: '8px', alignItems: 'center'}}><span style={{fontSize: '10px', background: 'var(--primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold'}}>{room.tag}</span><span style={{fontSize: '12px', opacity: 0.5}}><Users size={12} style={{display:'inline', marginRight: '4px'}}/> {room.users}/8</span></div></div><ChevronLeft style={{transform: 'rotate(180deg)'}} size={20} opacity={0.3}/></motion.div>
+      <h3 style={{marginBottom: '20px'}}>SALAS EN VIVO</h3>
+      <button onClick={() => onEnterRoom("Sala Sorpresa 🎲")} className="primary-btn" style={{ width: '100%', height: '60px', borderRadius: '15px', marginBottom: '20px', background: 'linear-gradient(45deg, #f39c12, #e74c3c)' }}>¡SORPRÉNDEME! 🎲</button>
+      <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>{activeRooms.map(room => (
+          <div key={room.id} onClick={() => onEnterRoom(room.name)} className="card" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px'}}>
+            <div><b>{room.name}</b><br/><span style={{fontSize:'12px', opacity:0.5}}>{room.users}/8 personas</span></div>
+            <ChevronLeft style={{transform: 'rotate(180deg)'}} size={20} opacity={0.3}/>
+          </div>
         ))}</div>
     </div>
   );
@@ -224,13 +272,24 @@ const RoomsModule = ({ onEnterRoom }) => {
 
 const StoreModule = ({ userData, setUserData }) => (
   <div className="fade-in" style={{padding:15}}>
-    <div className="card reward-hero" style={{border:'2px solid var(--primary)', marginBottom:20}}><div className="shield-container"><div className="shield-inner"><Gamepad2 size={40}/><div style={{fontSize:10, fontWeight:900}}>GANA PLAY</div></div></div><h2>Diamantes: {userData.diamonds}</h2><button className="primary-btn reward-btn" onClick={async () => {
+    <div className="card reward-hero" style={{border:'2px solid var(--primary)', marginBottom:20}}>
+      <div className="shield-container"><div className="shield-inner"><Gamepad2 size={40}/><div style={{fontSize:10, fontWeight:900}}>GANA PLAY</div></div></div>
+      <h2>Diamantes: {userData.diamonds}</h2>
+      <button className="primary-btn reward-btn" onClick={async () => {
         const newD = userData.diamonds + 100;
         await updateDoc(doc(db, "profiles", auth.currentUser.uid), { diamonds: newD });
         setUserData(prev => ({...prev, diamonds: newD}));
-      }}><PlayCircle size={24}/> VER VIDEO +100 💎</button></div>
-    <h3>Catálogo de Animaciones</h3>
-    <div className="pack-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:15}}>{ANIMATIONS_CATALOG.map(a => (<div key={a.id} className="card pack-card" style={{textAlign:'center'}}><div style={{fontSize:40}}>{a.icon}</div><div style={{fontWeight:'bold', fontSize:12}}>{a.name}</div><div style={{color:'var(--primary)', fontWeight:'bold'}}>{a.price} 💎</div></div>))}</div>
+      }}><PlayCircle size={24}/> VER VIDEO +100 💎</button>
+    </div>
+    <div className="pack-grid" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+      {ANIMATIONS_CATALOG.map(a => (
+        <div key={a.id} className="card pack-card" style={{textAlign:'center'}}>
+          <div style={{fontSize:30}}>{a.icon}</div>
+          <div style={{fontSize:10}}>{a.name}</div>
+          <div style={{color:'var(--primary)', fontWeight:'bold'}}>{a.price} 💎</div>
+        </div>
+      ))}
+    </div>
   </div>
 );
 
@@ -244,12 +303,12 @@ const GroupMeetingUI = ({ onExit, userData, onReceiveGift, roomName }) => {
   };
   return (
     <div className="meeting-overlay">
-      <header className="meeting-header"><button onClick={onExit} className="back-btn-small"><ArrowLeft/></button><span style={{fontWeight:'900'}}>{roomName?.toUpperCase()}</span><div style={{width:24}}></div></header>
+      <header className="meeting-header"><button onClick={onExit} className="back-btn-small"><ArrowLeft/></button><span>{roomName?.toUpperCase()}</span><div style={{width:24}}></div></header>
       <div className="meeting-grid-8" style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:20, padding:20}}>{[...Array(8)].map((_, i) => (
-          <div key={i} className="meeting-seat" onClick={() => i!==0 && setSelSeat(i)} style={{textAlign:'center'}}><div className="seat-avatar" style={{width:75, height:75, borderRadius:'50%', background: i===0?'var(--primary)':'#222', margin:'0 auto', position:'relative', display:'flex', alignItems:'center', justifyContent:'center', border: '2px solid rgba(255,255,255,0.1)'}}>{i===0 ? (userData.photoURL ? <img src={userData.photoURL} style={{width:'100%', height:'100%', borderRadius:'50%'}} /> : userData.name[0]) : <UserPlus opacity={0.2}/>}<AnimatePresence>{flying.filter(f => f.seat === i).map(f => <FlyingAnimation key={f.id} icon={f.icon} onComplete={() => setFlying(prev => prev.filter(p => p.id !== f.id))} />)}</AnimatePresence></div><span style={{fontSize:10, marginTop: '5px', display:'block'}}>{i===0?'Tú':'Asiento '+ (i+1)}</span></div>
+          <div key={i} className="meeting-seat" onClick={() => i!==0 && setSelSeat(i)} style={{textAlign:'center'}}><div className="seat-avatar" style={{width:70, height:70, borderRadius:'50%', background: i===0?'var(--primary)':'#222', margin:'0 auto', position:'relative', display:'flex', alignItems:'center', justifyContent:'center'}}>{i===0 ? (userData.photoURL ? <img src={userData.photoURL} style={{width:'100%', height:'100%', borderRadius:'50%'}} /> : userData.name[0]) : <UserPlus opacity={0.2}/>}<AnimatePresence>{flying.filter(f => f.seat === i).map(f => <FlyingAnimation key={f.id} icon={f.icon} onComplete={() => setFlying(prev => prev.filter(p => p.id !== f.id))} />)}</AnimatePresence></div><span style={{fontSize:10}}>{i===0?'Tú':'Asiento'}</span></div>
         ))}</div>
       {selSeat && (
-        <div className="gift-picker" style={{position:'absolute', bottom:0, background:'#1a1a1a', width:'100%', padding:20, borderRadius:'25px 25px 0 0', borderTop: '2px solid var(--primary)'}}><h4 style={{marginBottom:15}}>Regalar al Asiento {selSeat + 1}</h4><div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>{ANIMATIONS_CATALOG.map(a => <button key={a.id} onClick={() => sendGift(a)} style={{background:'#252525', border:'1px solid #333', color:'white', padding:10, borderRadius:15}}><div style={{fontSize:24}}>{a.icon}</div><div style={{fontSize:10, fontWeight:'bold', color:'var(--primary)'}}>{a.price} 💎</div></button>)}</div><button onClick={() => setSelSeat(null)} className="secondary-btn" style={{width:'100%', marginTop:15}}>Cerrar</button></div>
+        <div className="gift-picker" style={{position:'absolute', bottom:0, background:'#1a1a1a', width:'100%', padding:20, borderRadius:'25px 25px 0 0', borderTop: '2px solid var(--primary)'}}><h4 style={{marginBottom:15}}>Regalar</h4><div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>{ANIMATIONS_CATALOG.map(a => <button key={a.id} onClick={() => sendGift(a)} style={{background:'#252525', border:'1px solid #333', color:'white', padding:10, borderRadius:15}}><div>{a.icon}</div><div style={{fontSize:10}}>{a.price} 💎</div></button>)}</div><button onClick={() => setSelSeat(null)} className="secondary-btn" style={{width:'100%', marginTop:15}}>Cerrar</button></div>
       )}
       <div style={{padding:20, position:'absolute', bottom:20, width:'100%', display:'flex', gap:15}}><button className="secondary-btn" style={{flex:1}}><Mic /></button><button className="primary-btn" onClick={onExit} style={{flex:2, background:'#e74c3c'}}>SALIR</button></div>
     </div>
@@ -266,21 +325,5 @@ const NotificationPanel = ({ list, onBack }) => (
 const NavButton = ({ active, onClick, icon, label }) => (
   <button onClick={onClick} className={`nav-item-ig ${active ? 'active' : ''}`}>{icon}<span>{label}</span></button>
 );
-
-const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isReg, setIsReg] = useState(false);
-  const handleAuth = async (e) => {
-    e.preventDefault();
-    try {
-      if (isReg) await createUserWithEmailAndPassword(auth, email, password);
-      else await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) { alert(err.message); }
-  };
-  return (
-    <div className="container center" style={{background: 'linear-gradient(135deg, #4d1d12, #6b3b00)'}}><div className="card login-box" style={{textAlign: 'center', padding: '40px 30px'}}><div className="login-logo-circle"><Sparkles color="white" size={40} /></div><h1 style={{fontSize: '28px', fontWeight: '900', marginBottom: '30px'}}>AMIGOS PUZ</h1><form onSubmit={handleAuth} style={{display: 'flex', flexDirection: 'column', gap: '15px'}}><input type="email" placeholder="Email" className="login-input" onChange={e => setEmail(e.target.value)} required /><input type="password" placeholder="Pass" className="login-input" onChange={e => setPassword(e.target.value)} required /><button type="submit" className="primary-btn" style={{height: '55px', borderRadius: '15px'}}>{isReg ? 'REGISTRARSE' : 'ENTRAR'}</button></form><button onClick={() => setIsReg(!isReg)} className="text-link-btn">{isReg ? 'Ya tengo cuenta' : 'Crear cuenta gratis'}</button><div className="separator"><span>o</span></div><button className="secondary-btn" onClick={() => signInAnonymously(auth)} style={{width: '100%', height: '50px', borderRadius: '15px'}}>ENTRAR COMO INVITADO</button></div></div>
-  );
-};
 
 export default App;
